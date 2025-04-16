@@ -235,3 +235,22 @@ var visContinuous = {
 Map.setCenter(-1.5, 52.0, 6);
 Map.addLayer(soilPH, visContinuous, 'Soil pH (4–8 Gradient)');
 
+/***** 2. 筛选并可视化 pH 在 6.8–7.2 之间的区域 *****/
+
+// 2.1 基于 soilPH 图像，生成符合条件的掩膜影像
+var phMask = soilPH
+  .gte(6.8)        // pH ≥ 6.8
+  .and(soilPH.lte(7.2)); // pH ≤ 7.2
+
+// 2.2 将掩膜应用到原始影像上
+var soilPH_6_8_7_2 = soilPH.updateMask(phMask);
+
+// 2.3 可视化：只显示 pH 6.8–7.2 的区域，用单色高亮
+var visMask = {
+  palette: ['00FF00'],  // 绿色表示 6.8–7.2 区间
+  min: 6.8,
+  max: 7.2
+};
+
+// 2.4 添加图层
+Map.addLayer(soilPH_6_8_7_2, visMask, 'pH 6.8–7.2 Areas');
