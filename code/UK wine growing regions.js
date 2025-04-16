@@ -254,3 +254,127 @@ var visMask = {
 
 // 2.4 添加图层
 Map.addLayer(soilPH_6_8_7_2, visMask, 'pH 6.8–7.2 Areas');
+
+
+
+// =====================================================
+// 英国葡萄种植适宜性分析（2024年）
+// 数据处理与分析内容：
+// - 利用 2024 年 LANDSAT 8 遥感数据计算 NDVI、NDWI、NDMI 指数
+// - 基于 SRTM 数据提取坡度（0–10°）与高程（50–220m）信息
+// - 利用 ERA5-Land 气候数据计算全年太阳辐射总量（≥ 2700 MJ/m²）
+// - 利用土地覆盖数据筛选适宜葡萄种植的土地类型
+// - 叠加葡萄园现有分布，实现适宜性空间分析可视化
+// =====================================================
+
+
+// ===================== 模块 1：设置分析范围与时间 =====================
+var startDate = ee.Date('2024-01-01');
+var endDate = ee.Date('2024-12-31');
+
+var countries = ee.FeatureCollection("USDOS/LSIB_SIMPLE/2017");
+var UK_boundary = countries.filter(ee.Filter.eq("country_na", "United Kingdom"));
+
+// ===================== 模块 2：加载现有葡萄园矢量数据 =====================
+var existing_vineyards = ee.FeatureCollection("projects/ee-cesong333/assets/existing_vineyards");
+Map.addLayer(existing_vineyards, {color: 'purple'}, '现有葡萄园');
+
+
+// ===================== PART 1：植被水分指数分析 =====================
+// 加载并处理 LANDSAT 8 数据
+var l8 = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
+  .filterBounds(UK_boundary)
+  .filterDate(startDate, endDate)
+  .filter(ee.Filter.lt('CLOUD_COVER', 60))
+  .map(function(image) {
+    var sr = image.select(['SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7'])
+                  .multiply(0.0000275).add(-0.2);
+    
+    var ndvi = sr.normalizedDifference(['SR_B5', 'SR_B4']).rename('NDVI');  // 植被指数
+    var ndwi = sr.normalizedDifference(['SR_B3', 'SR_B5']).rename('NDWI');  // 水分指数
+    var ndmi = sr.normalizedDifference(['SR_B5', 'SR_B6']).rename('NDMI');  // 水分胁迫指数
+
+    return image.addBands([ndvi, ndwi, ndmi]);
+  });
+
+// 获取中位数影像并裁剪英国区域
+var median = l8.median().clip(UK_boundary);
+
+// 创建掩膜
+var ndvi_mask = median.select('NDVI').gt(0.2);
+var ndwi_mask = median.select('NDWI').lt(0.3);
+var ndmi_mask = median.select('NDMI').gt(0.2);
+
+// 可视化掩膜图层
+Map.addLayer(ndvi_mask.updateMask(ndvi_mask), {palette: ['00FF00']}, 'NDVI > 0.2');
+Map.addLayer(ndwi_mask.updateMask(ndwi_mask), {palette: ['0000FF']}, 'NDWI < 0.3');
+Map.addLayer(ndmi_mask.updateMask(ndmi_mask), {palette: ['FFA500']}, 'NDMI > 0.2');
+
+
+// ===================== PART 2：坡度分析（0–10°） =====================
+var dem = ee.Image('USGS/SRTMGL1_003');
+var slope = ee.Terrain.slope(dem);
+
+// 可视化坡度在 0–10 度之间的区域
+var slopeVis = {
+  min: 0,
+  max: 10,
+  palette: ['lightblue', 'green', 'darkgreen']
+};
+
+Map.centerObject(UK_boundary, 6);
+Map.addLayer(slope.clip(UK_boundary), slopeVis, '坡度 Slope (0–10°)');
+
+
+// ===================== PART 3：高程分析（50–220 米） =====================
+var elevation = dem.select('elevation');
+var elevationMask = elevation.gte(50).and(elevation.lte(220));
+var elevationFiltered = elevation.updateMask(elevationMask);
+
+var elevationVis = {
+  min: 50,
+  max: 220,
+  palette: ['lightblue', 'yellow', 'green']
+};
+
+Map.addLayer(elevationFiltered.clip(UK_boundary), elevationVis, '高程 Elevation (50–220m)');
+
+
+// ===================== PART 4：太阳辐射分析（≥ 2700 MJ/m²） =====================
+var era5 = ee.ImageCollection('ECMWF/ERA5_LAND/MONTHLY_AGGR')
+              .filterDate(startDate, endDate)
+              .select('surface_net_solar_radiation_sum');
+
+var annualRadiation = era5.sum().divide(1e6);  // J → MJ
+var radiationMask = annualRadiation.gte(2700);
+var radiationFiltered = annualRadiation.updateMask(radiationMask);
+
+var radiationVis = {
+  min: 2700,
+  max: 6000,
+  palette: ['white', 'yellow', 'orange', 'red']
+};
+
+Map.addLayer(radiationFiltered.clip(UK_boundary), radiationVis, '年太阳辐射 ≥ 2700 MJ/m²');
+
+
+// ===================== PART 5：土地利用适宜性分析 =====================
+var landcover = ee.Image('projects/ee-cesong333/assets/Land_Cover_Map_10m');
+
+// 可视化原始土地覆盖图
+Map.addLayer(landcover.clip(UK_boundary), {}, '原始地类 Raw Land Cover');
+
+// 定义适宜种植葡萄的地类编码（需根据图例确认）
+var suitableCodes = [1, 2, 3, 4, 5, 6, 7, 10, 12];
+
+var suitableMask = landcover.remap(
+  suitableCodes,
+  ee.List.repeat(1, suitableCodes.length)
+);
+
+var suitableLand = landcover.updateMask(suitableMask);
+
+// 可视化适宜种植区域
+Map.addLayer(suitableMask.updateMask(suitableMask), 
+  {palette: ['green']}, 
+  '适宜种植葡萄的土地 Suitable Land');
