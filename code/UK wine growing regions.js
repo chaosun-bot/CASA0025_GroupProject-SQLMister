@@ -131,3 +131,75 @@ print("GSP Suitability Mask (binary):", gspMask);
 
 // 使用更新掩膜 (updateMask) 只显示满足条件的区域，并用蓝色调色板显示
 Map.addLayer(gspMask.updateMask(gspMask), {palette: ['blue']}, "GSP Suitability Mask");
+
+/*************************************************
+ * 计算 FlavorHours：风味酶活性温度区间小时数
+ *   时间段：2024-07-20 至 2024-09-20
+ *   条件：温度在 16–22°C（ERA5-Land 的 temperature_2m 波段，单位 K）
+ * 输出：FlavorHours（累计小时数）
+ *************************************************/
+
+// 1. 定义英国边界 ROI
+var countries = ee.FeatureCollection("USDOS/LSIB_SIMPLE/2017");
+var UK_boundary = countries.filter(ee.Filter.eq("country_na", "United Kingdom"));
+Map.centerObject(UK_boundary, 6);
+
+// 2. 导入并过滤 ERA5-Land Hourly 数据（2024年）
+var era5 = ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY")
+            .filterBounds(UK_boundary)
+            .filterDate("2024-07-20", "2024-09-20")
+            .select("temperature_2m");  // 单位：K
+
+// 3. 将温度从 K 转换为 °C
+var era5C = era5.map(function(img) {
+  return img
+    .subtract(273.15)         // K -> °C
+    .rename("tempC")
+    .copyProperties(img, img.propertyNames());
+});
+
+// 4. 生成二值图像：如果 16°C <= tempC <= 22°C 则为1，否则为0
+var flags = era5C.map(function(img) {
+  return img
+    .gte(16).and(img.lte(22)) // inRange
+    .rename("flavorFlag")
+    .copyProperties(img, img.propertyNames());
+});
+
+// 5. 累加所有小时的 flag，得到累计小时数
+var FlavorHours = flags
+  .sum()                     // 将一天中所有小时的 0/1 累加
+  .clip(UK_boundary)
+  .rename("FlavorHours");
+
+// 6. 可视化并打印
+Map.addLayer(FlavorHours, {min: 0, max: 1000, palette: ['white','orange']}, "FlavorHours");
+print("FlavorHours Image:", FlavorHours);
+
+// （可选）查看区域统计信息
+var stats = FlavorHours.reduceRegion({
+  reducer: ee.Reducer.minMax().combine({
+    reducer2: ee.Reducer.mean(),
+    sharedInputs: true
+  }).combine({
+    reducer2: ee.Reducer.stdDev(),
+    sharedInputs: true
+  }),
+  geometry: UK_boundary,
+  scale: 10000,
+  maxPixels: 1e9
+});
+print("FlavorHours stats:", stats);
+
+/***** 基于 FlavorHours 阈值筛选适宜区域 *****/
+// 设定阈值，例如 800 小时
+var threshold = 800;
+
+// 构建二值掩膜：FlavorHours 在 [threshold, +∞)
+var flavorMask = FlavorHours.gte(threshold);
+print("FlavorHours Suitability Mask:", flavorMask);
+
+// 将掩膜应用并渲染，仅显示满足条件的区域
+Map.addLayer(flavorMask.updateMask(flavorMask), {palette: ['orange']}, 
+             "FlavorHours ≥ " + threshold + "h");
+
