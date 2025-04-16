@@ -203,3 +203,35 @@ print("FlavorHours Suitability Mask:", flavorMask);
 Map.addLayer(flavorMask.updateMask(flavorMask), {palette: ['orange']}, 
              "FlavorHours ≥ " + threshold + "h");
 
+/***** 1. 加载并可视化全英国的土壤 pH 值 *****/
+
+// 1.1 定义 UK 边界
+var countries = ee.FeatureCollection("USDOS/LSIB_SIMPLE/2017");
+var UK_boundary = countries
+  .filter(ee.Filter.eq('country_na', 'United Kingdom'));
+
+// 1.2 加载 OpenLandMap 土壤 pH（H2O）数据
+// band b0 单位为 0.1 pH，除以 10 得到真实 pH
+var soilPH = ee.Image("OpenLandMap/SOL/SOL_PH-H2O_USDA-4C1A2A_M/v02")
+  .select('b0')
+  .divide(10)
+  .rename('soilPH')
+  .clip(UK_boundary);
+
+// 1.3 可视化参数：用渐变色显示 pH 4.0–8.0
+var visContinuous = {
+  min: 4.0,
+  max: 8.0,
+  palette: [
+    '#d7191c', // 酸性（pH≈4）
+    '#fdae61', // pH≈5
+    '#ffffbf', // pH≈6
+    '#abdda4', // pH≈7
+    '#2b83ba'  // 碱性（pH≈8）
+  ]
+};
+
+// 1.4 添加图层
+Map.setCenter(-1.5, 52.0, 6);
+Map.addLayer(soilPH, visContinuous, 'Soil pH (4–8 Gradient)');
+
