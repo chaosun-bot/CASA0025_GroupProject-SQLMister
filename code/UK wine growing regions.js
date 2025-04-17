@@ -316,3 +316,5 @@ var suitableLand = landcover.updateMask(suitableMask);
 Map.addLayer(suitableMask.updateMask(suitableMask), 
   {palette: ['green']}, 
   '适宜种植葡萄的土地 Suitable Land');
+
+  // --------------------- Step 2:  --------------------------------
