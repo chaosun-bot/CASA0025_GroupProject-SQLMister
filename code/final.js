@@ -349,7 +349,6 @@ function getUKBoundary() {
   var regions = {};
   
   // 使用实际的行政区划边界定义英国各区域，分割为适合计算的较小区域
-  
   // 英格兰南部各郡
   regions['肯特郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Kent')).geometry();
   regions['东萨塞克斯'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'East Sussex')).geometry();
@@ -612,7 +611,7 @@ function getUKBoundary() {
 
 /**
  * 葡萄种植适宜性分析模块 - 核心机器学习功能
- * 这个模块独立于UI，可单独调用进行分析
+ * 
  */
 var GrapeML = {
   
@@ -721,14 +720,6 @@ var GrapeML = {
       .and(elevationMask);
   },
   
-  /**
-   * 执行机器学习预测
-   * @param {Object} factors - 环境因素对象
-   * @param {ee.Image} suitabilityMask - 环境适宜性掩膜
-   * @param {ee.Geometry} region - 分析区域
-   * @param {ee.FeatureCollection} vineyards - 葡萄园数据
-   * @return {Object} 机器学习结果对象
-   */
 /**
  * 执行机器学习预测
  * @param {Object} factors - 环境因素对象
