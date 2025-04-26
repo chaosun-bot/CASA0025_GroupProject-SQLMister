@@ -16,11 +16,21 @@ Our project addresses the challenge of identifying optimal regions for grape vin
 
 ## 1.2 End User 
 
-The application is targeted at vineyard owners, agricultural planners, land developers, and researchers working on climate adaptation strategies. It empowers users to interactively explore vineyard suitability across counties or custom-drawn regions, making predictions based on environmental factors. By offering spatial and temporal insights, the tool helps users optimize land selection for grape cultivation, adapt to environmental changes, and reduce investment risks. The application's accessible interface and intuitive design ensure that users without technical GIS or machine learning expertise can still easily conduct meaningful analyses and inform real-world planting decisions.
+The application is designed for vineyard developers and agricultural planners. It enables users to interactively explore vineyard suitability across counties or custom regions, making predictions based on environmental factors such as temperature, elevation, and slope. By offering spatial and temporal insights, the tool helps optimize land selection, support climate adaptation, and reduce investment risks. Its intuitive interface ensures accessibility even for users without technical GIS or machine learning expertise.
+Additionally, by interviewing investors interested in establishing vineyards in the UK, we collected key insights into ideal growing conditions. Investors prioritize stable climates and seek regions suitable for cultivating high-quality grape varieties, further informing the application’s focus and design.
 
 ## 1.3 Data
 
-Our analysis utilizes remote sensing and environmental datasets from Google Earth Engine. We integrate GST and GSP from TerraClimate, GDD and flavor activity temperatures from ERA5-Land, soil pH from OpenLandMap, slope and elevation from SRTM and ALOS, solar radiation from ERA5-Land Monthly, and NDVI, NDWI, NDMI from Landsat 8 imagery. These datasets undergo cloud masking, temporal aggregation, spatial resampling, and threshold filtering to ensure comparability. Administrative boundaries for UK counties are also incorporated. This multi-source framework enables scalable and accurate vineyard suitability predictions across varying geographic regions and time periods.
+We reviewed relevant literature to define optimal environmental ranges for grape cultivation, focusing on elevation, temperature, slope, growing season conditions, and precipitation. Based on these findings, we set parameter thresholds with acceptable deviations.
+
+DEM: JAXA/ALOS/AW3D30/V2_2 — ALOS DSM: Global 30m v3.2
+Temperature: MODIS/006/MOD11A2 — MODIS Land Surface Temperature and Emissivity
+Slope: USGS/SRTMGL1_003 — NASA SRTM Digital Elevation 30m
+GST : TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE
+GDD : TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE
+GSP : TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE
+Existing Vineyard: Exported from OpenStreetMap (OSM)
+Land Use: Land Cover Map 10m — UK Centre for Ecology & Hydrology
 
 ## 1.4 Methodology
 
