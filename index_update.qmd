@@ -26,9 +26,9 @@ We reviewed relevant literature to define optimal environmental ranges for grape
 DEM: JAXA/ALOS/AW3D30/V2_2 — ALOS DSM: Global 30m v3.2
 Temperature: MODIS/006/MOD11A2 — MODIS Land Surface Temperature and Emissivity
 Slope: USGS/SRTMGL1_003 — NASA SRTM Digital Elevation 30m
-GST : TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE
-GDD : TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE
-GSP : TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE
+GST: TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE
+GDD: TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE
+GSP: TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE
 Existing Vineyard: Exported from OpenStreetMap (OSM)
 Land Use: Land Cover Map 10m — UK Centre for Ecology & Hydrology
 
