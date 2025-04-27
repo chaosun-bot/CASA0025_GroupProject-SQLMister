@@ -37,8 +37,6 @@ The application is designed for vineyard developers. It enables users to explore
 
 ### 1.5 Data
 
-Exis
-::: {.cell}
 | Variable                     | Dataset Source                                                    |
 |-------------------------------|--------------------------------------------------------------------|
 | Temperature                  | MODIS/006/MOD11A2 — MODIS Land Surface Temperature and Emissivity  |
@@ -49,8 +47,7 @@ Exis
 | Elevation                    | JAXA/ALOS/AW3D30/V2_2 — ALOS                                       |
 | Existing Vineyard            | Exported from OpenStreetMap (OSM)                                  |
 | Land Use                     | Land Cover Map 10m — UK Centre for Ecology & Hydrology             |
-:::
-: Table 1. Summary of datasets used.
+Table: Summary of datasets used.
 
 ### 1.6 Methodology
 
