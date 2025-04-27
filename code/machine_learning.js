@@ -1,215 +1,4 @@
-//--------------------- Step 1: Importing and Pre-Processing --------------------------------
 
-/*************************************************
- * UK 葡萄园选址 — 数据预处理脚本封装
- * 每个模块都分为“计算影像”和“基于阈值生成掩膜”两部分
- *************************************************/
-
-//—— 1. 定义英国边界（ROI） ——//
-/**
- * 返回一个 FeatureCollection，仅包含英国国界
- */
-function getUKBoundary() {
-    return ee.FeatureCollection("USDOS/LSIB_SIMPLE/2017")
-             .filter(ee.Filter.eq("country_na", "United Kingdom"));
-  }
-  
-  
-  //—— 2. GST: 生长季平均气温 ——//
-  // 2.1 计算 GST
-  /**
-   * computeGST(year):
-   * - 加载 TerraClimate 全年数据
-   * - 筛选生长季（4–10月），计算每月平均温度 tmean
-   * - 对所有生长季 tmean 取平均，得到 GST（°C）
-   */
-  function computeGST(year) {
-    var bc = UK;
-    var tc = ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE")
-                 .filterBounds(bc)
-                 .filterDate(year + "-01-01", year + "-12-31")
-                 .filter(ee.Filter.calendarRange(4, 10, 'month'))
-                 .map(function(img) {
-                   var tmx = img.select("tmmx").divide(10);
-                   var tmn = img.select("tmmn").divide(10);
-                   return img.addBands(tmx.add(tmn).divide(2).rename("tmean"));
-                 });
-    var gst = tc.select("tmean").mean().clip(bc).rename("GST");
-    return gst;
-  }
-  // 2.2 根据 GST 阈值生成掩膜
-  /**
-   * maskGST(gst, minG, maxG):
-   * - 输入 GST 影像，设定下限 minG、上限 maxG
-   * - 返回布尔影像：minG ≤ GST ≤ maxG
-   */
-  function maskGST(gst, minG, maxG) {
-    return gst.gte(minG).and(gst.lte(maxG));
-  }
-  
-  //—— 3. GDD: 生长积温 ——//
-  // 3.1 计算 GDD
-  /**
-   * computeGDD(year, baseTemp, daysPerMonth):
-   * - 加载生长季同 TerraClimate 数据
-   * - 用 tmean = (tmmx + tmmn)/2 计算月均温
-   * - 每月积温 GDD_month = max(0, tmean - baseTemp) × daysPerMonth
-   * - 对所有月度 GDD 求和，得到生长季总积温 GDD（°C·days）
-   */
-  function computeGDD(year, baseTemp, daysPerMonth) {
-    var bc = UK;
-    var tc = ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE")
-                 .filterBounds(bc)
-                 .filterDate(year + "-01-01", year + "-12-31")
-                 .filter(ee.Filter.calendarRange(4, 10, 'month'))
-                 .select(["tmmx", "tmmn"])
-                 .map(function(img) {
-                   var tmean = img.select("tmmx").divide(10)
-                                  .add(img.select("tmmn").divide(10))
-                                  .divide(2);
-                   return tmean.subtract(baseTemp).max(0)
-                               .multiply(daysPerMonth)
-                               .rename("GDD")
-                               .copyProperties(img, img.propertyNames());
-                 });
-    return tc.sum().clip(bc).rename("GDD");
-  }
-  // 3.2 根据 GDD 阈值生成掩膜
-  /**
-   * maskGDD(gdd, minD, maxD):
-   * - 输入 GDD 影像，设定下限 minD、上限 maxD
-   * - 返回布尔影像：minD ≤ GDD ≤ maxD
-   */
-  function maskGDD(gdd, minD, maxD) {
-    return gdd.gte(minD).and(gdd.lte(maxD));
-  }
-  
-  //—— 4. GSP: 生长季降水量 ——//
-  // 4.1 计算 GSP
-  /**
-   * computeGSP(year):
-   * - 加载 TerraClimate 生长季（4–10月）pr 波段
-   * - 对月度降水量累加，得到生长季总降水量 GSP（mm）
-   */
-  function computeGSP(year) {
-    var bc = UK;
-    var gsp = ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE")
-                 .filterBounds(bc)
-                 .filterDate(year + "-01-01", year + "-12-31")
-                 .filter(ee.Filter.calendarRange(4, 10, 'month'))
-                 .select("pr")
-                 .sum()
-                 .clip(bc)
-                 .rename("GSP");
-    return gsp;
-  }
-  // 4.2 根据 GSP 阈值生成掩膜
-  /**
-   * maskGSP(gsp, minP, maxP):
-   * - 输入 GSP 影像，设定下限 minP、上限 maxP
-   * - 返回布尔影像：minP ≤ GSP ≤ maxP
-   */
-  function maskGSP(gsp, minP, maxP) {
-    return gsp.gte(minP).and(gsp.lte(maxP));
-  }
-  
-  //—— 5. FlavorHours: 风味酶活性累计小时数 ——//
-  // 5.1 计算 FlavorHours
-  /**
-   * computeFlavorHours(startDate, endDate, tMin, tMax):
-   * - 加载 ERA5-Land Hourly 温度数据（K），转为 °C
-   * - 筛选 tMin ≤ temp ≤ tMax，并累加小时数
-   */
-  function computeFlavorHours(startDate, endDate, tMin, tMax) {
-    var bc = UK;
-    var era5 = ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY")
-                 .filterBounds(bc)
-                 .filterDate(startDate, endDate)
-                 .select("temperature_2m")
-                 .map(function(img) {
-                   return img.subtract(273.15).rename("T");
-                 })
-                 .map(function(img) {
-                   return img.gte(tMin).and(img.lte(tMax)).rename("flag");
-                 });
-    return era5.sum().clip(bc).rename("FlavorHours");
-  }
-  // 5.2 根据 FlavorHours 阈值生成掩膜
-  /**
-   * maskFlavorHours(fh, threshold):
-   * - 返回布尔影像：FlavorHours ≥ threshold
-   */
-  function maskFlavorHours(fh, threshold) {
-    return fh.gte(threshold);
-  }
-  
-  //—— 6. SoilPH: 土壤 pH ——//
-  // 6.1 计算 SoilPH
-  /**
-   * computeSoilPH():
-   * - 加载 OpenLandMap pH 数据
-   * - 选择表层 b0 波段，除以10得到真实 pH
-   */
-  function computeSoilPH() {
-    var bc = UK;
-    return ee.Image("OpenLandMap/SOL/SOL_PH-H2O_USDA-4C1A2A_M/v02")
-             .select("b0").divide(10)
-             .rename("soilPH").clip(bc);
-  }
-  // 6.2 根据 SoilPH 阈值生成掩膜
-  /**
-   * maskSoilPH(ph, minPH, maxPH):
-   * - 返回布尔影像：minPH ≤ soilPH ≤ maxPH
-   */
-  function maskSoilPH(ph, minPH, maxPH) {
-    return ph.gte(minPH).and(ph.lte(maxPH));
-  }
-  
-  var UK = getUKBoundary();
-  Map.centerObject(UK, 6);
-  Map.addLayer(UK, {color: 'red', width: 2}, "UK Boundary");
-  
-  //—— 主流程：调用各模块 ——//
-  var year = '2024';
-  
-  // GST 模块
-  var gst = computeGST(year);
-  Map.addLayer(gst, {min:10, max:20, palette:['blue','green','yellow','red']}, 'GST');
-  Map.addLayer(maskGST(gst,14.1,15.5).updateMask(maskGST(gst,14.1,15.5)), {palette:['green']}, 'GST Suitability');
-  
-  // GDD 模块
-  var gdd = computeGDD(year, 10, 30);
-  Map.addLayer(gdd, {min:500, max:1500, palette:['white','red']}, 'GDD');
-  Map.addLayer(maskGDD(gdd,974,1223).updateMask(maskGDD(gdd,974,1223)), {palette:['green']}, 'GDD Suitability');
-  
-  // GSP 模块
-  var gsp = computeGSP(year);
-  Map.addLayer(gsp, {min:200, max:700, palette:['white','blue']}, 'GSP');
-  Map.addLayer(maskGSP(gsp,273,449).updateMask(maskGSP(gsp,273,449)), {palette:['blue']}, 'GSP Suitability');
-  
-  // FlavorHours 模块
-  var fh = computeFlavorHours('2024-07-20','2024-09-20',16,22);
-  Map.addLayer(fh, {min:0,max:1000,palette:['white','orange']}, 'FlavorHours');
-  Map.addLayer(maskFlavorHours(fh,800).updateMask(maskFlavorHours(fh,800)), {palette:['orange']}, 'FlavorHours Suitability');
-  
-  // Soil pH 模块
-  var ph = computeSoilPH();
-  Map.addLayer(ph, {min:4,max:8,palette:['#d7191c','#fdae61','#ffffbf','#abdda4','#2b83ba']}, 'Soil pH');
-  Map.addLayer(maskSoilPH(ph,6.8,7.2).updateMask(maskSoilPH(ph,6.8,7.2)), {palette:['00FF00'],min:6.8,max:7.2}, 'Soil pH Suitability');
-  
-  
-  
-  
-  
-  // =====================================================
-  // 英国葡萄种植适宜性分析（2024年）
-  // 数据处理与分析内容：
-  // - 利用 LANDSAT 8 计算 NDVI、NDWI、NDMI 指数（渐变可视化）
-  // - 提取坡度（0–10°）、高程（50–220m）
-  // - 累加 ERA5 年太阳辐射（≥ 2700 MJ/m²）
-  // - 筛选适宜葡萄种植的土地类型
-  // =====================================================
-  
   // ===================== 参数设置 =====================
   var startDate = ee.Date('2024-01-01');
   var endDate = ee.Date('2024-12-31');
@@ -351,177 +140,9 @@ function getUKBoundary() {
   // 使用实际的行政区划边界定义英国各区域，分割为适合计算的较小区域
   // 英格兰南部各郡
   regions['肯特郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Kent')).geometry();
-  regions['东萨塞克斯'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'East Sussex')).geometry();
-  regions['西萨塞克斯'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'West Sussex')).geometry();
-  regions['萨里郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Surrey')).geometry();
-  regions['汉普郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Hampshire')).geometry();
-  regions['伦敦'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Greater London')).geometry();
-  regions['伯克郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Berkshire')).geometry();
-  regions['埃塞克斯郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Essex')).geometry();
-  regions['牛津郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Oxfordshire')).geometry();
-  regions['白金汉郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Buckinghamshire')).geometry();
-  
-  // 英格兰西南部各郡
-  regions['康沃尔郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Cornwall')).geometry();
-  regions['德文郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Devonshire')).geometry();
-  regions['多塞特郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Dorsetshire')).geometry();
-  regions['萨默塞特郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Somersetshire')).geometry();
-  regions['威尔特郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Wiltshire')).geometry();
-  regions['格洛斯特郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Gloucestershire')).geometry();
-  
-  // 英格兰东部各郡
-  regions['剑桥郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Cambridgeshire')).geometry();
-  regions['萨福克郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Suffolk')).geometry();
-  regions['诺福克郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Norfolkshire')).geometry();
-  regions['林肯郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Lincolnshire')).geometry();
-  
-  // 英格兰中部各郡
-  regions['赫特福德郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Hertfordshire')).geometry();
-  regions['贝德福德郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Bedfordshire')).geometry();
-  regions['北安普顿郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Northamptonshire')).geometry();
-  regions['莱斯特郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Leicestershire')).geometry();
-  regions['沃里克郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Warwickshire')).geometry();
-  regions['西米德兰兹'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'West Midlands')).geometry();
-  regions['斯塔福德郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Staffordshire')).geometry();
-  regions['德比郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Derbyshire')).geometry();
-  regions['诺丁汉郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Nottinghamshire')).geometry();
-  
-  // 英格兰西北部各郡
-  regions['柴郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Cheshire')).geometry();
-  regions['大曼彻斯特'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Greater Manchest')).geometry();
-  regions['默西塞德'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Merseyside')).geometry();
-  regions['兰开夏郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Lancashire')).geometry();
-  regions['坎布里亚郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Cumbria')).geometry();
-  
-  // 约克郡及东北部各郡
-  regions['北约克郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'North Yorkshire')).geometry();
-  regions['西约克郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'West Yorkshire')).geometry();
-  regions['南约克郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'South Yorkshire')).geometry();
-  regions['亨伯赛德'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Humberside')).geometry();
-  regions['达勒姆郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Durham')).geometry();
-  regions['泰恩和威尔'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Tyne and Wear')).geometry();
-  regions['诺森伯兰郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Northumberland')).geometry();
-  regions['克利夫兰'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Cleveland')).geometry();
-  
-  // 威尔士各区域（小块）
-  regions['克赖德'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Clwyd')).geometry();
-  regions['格温内思'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Gwynedd')).geometry();
-  regions['迪菲德'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Dyfed')).geometry();
-  regions['鲍伊斯'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Powys')).geometry();
-  regions['南格拉摩根'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'South Glamorgan')).geometry();
-  regions['中格拉摩根'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Mid Glamorgan')).geometry();
-  regions['西格拉摩根'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'West Glamorgan')).geometry();
-  regions['格温特'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Gwent')).geometry();
-  
-  // 苏格兰各区域（小块）
-  regions['边区'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Borders')).geometry();
-  regions['中央区'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Central')).geometry();
-  regions['邓弗里斯和加洛韦'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Dumfries and Gal')).geometry();
-  regions['法伊夫'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Fyfe')).geometry();
-  regions['格兰皮恩'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Grampian')).geometry();
-  regions['高地'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Highland')).geometry();
-  regions['洛锡安'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Lothian')).geometry();
-  regions['斯特拉斯克莱德'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Strathclyde')).geometry();
-  regions['泰赛德'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Tayside')).geometry();
-  
-  // 北爱尔兰各区域（小块）
-  regions['贝尔法斯特'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Belfast')).geometry();
-  regions['安特里姆'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Antrim')).geometry();
-  regions['唐郡'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Down')).geometry();
-  regions['阿玛'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Armagh')).geometry();
-  regions['泰隆'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Tyrone')).geometry();
-  regions['菲尔马纳'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Fermanagh')).geometry();
-  regions['伦敦德里'] = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', 'Londonderry')).geometry();
-  
-  // 一些有意义的组合区域（规模适中）
-  regions['肯特与萨塞克斯'] = ukLevel2.filter(ee.Filter.or(
-    ee.Filter.eq('ADM2_NAME', 'Kent'),
-    ee.Filter.eq('ADM2_NAME', 'East Sussex'),
-    ee.Filter.eq('ADM2_NAME', 'West Sussex')
-  )).geometry();
-  
-  regions['伦敦及周边'] = ukLevel2.filter(ee.Filter.or(
-    ee.Filter.eq('ADM2_NAME', 'Greater London'),
-    ee.Filter.eq('ADM2_NAME', 'Surrey'),
-    ee.Filter.eq('ADM2_NAME', 'Hertfordshire')
-  )).geometry();
-  
-  regions['东英吉利'] = ukLevel2.filter(ee.Filter.or(
-    ee.Filter.eq('ADM2_NAME', 'Norfolk'),
-    ee.Filter.eq('ADM2_NAME', 'Norfolkshire'),
-    ee.Filter.eq('ADM2_NAME', 'Suffolk')
-  )).geometry();
-  
-  regions['德文与康沃尔'] = ukLevel2.filter(ee.Filter.or(
-    ee.Filter.eq('ADM2_NAME', 'Cornwall'),
-    ee.Filter.eq('ADM2_NAME', 'Devonshire')
-  )).geometry();
-  
-  regions['约克郡南北区'] = ukLevel2.filter(ee.Filter.or(
-    ee.Filter.eq('ADM2_NAME', 'North Yorkshire'),
-    ee.Filter.eq('ADM2_NAME', 'South Yorkshire')
-  )).geometry();
-  
-  regions['威尔士南部'] = ukLevel2.filter(ee.Filter.or(
-    ee.Filter.eq('ADM2_NAME', 'South Glamorgan'),
-    ee.Filter.eq('ADM2_NAME', 'Mid Glamorgan'),
-    ee.Filter.eq('ADM2_NAME', 'West Glamorgan'),
-    ee.Filter.eq('ADM2_NAME', 'Gwent')
-  )).geometry();
-  
-  regions['苏格兰中部'] = ukLevel2.filter(ee.Filter.or(
-    ee.Filter.eq('ADM2_NAME', 'Central'),
-    ee.Filter.eq('ADM2_NAME', 'Lothian'),
-    ee.Filter.eq('ADM2_NAME', 'Fyfe')
-  )).geometry();
-  
-  // 传统的葡萄酒产区（最适合分析的区域）
-  regions['英国传统葡萄酒产区'] = ukLevel2.filter(ee.Filter.or(
-    ee.Filter.eq('ADM2_NAME', 'Kent'),
-    ee.Filter.eq('ADM2_NAME', 'East Sussex'),
-    ee.Filter.eq('ADM2_NAME', 'West Sussex'),
-    ee.Filter.eq('ADM2_NAME', 'Surrey'),
-    ee.Filter.eq('ADM2_NAME', 'Hampshire')
-  )).geometry();
-  
-  regions['英国新兴葡萄酒产区'] = ukLevel2.filter(ee.Filter.or(
-    ee.Filter.eq('ADM2_NAME', 'Essex'),
-    ee.Filter.eq('ADM2_NAME', 'Suffolk'),
-    ee.Filter.eq('ADM2_NAME', 'Dorsetshire'),
-    ee.Filter.eq('ADM2_NAME', 'Cornwall')
-  )).geometry();
-  
-  // 按区域分组的几个较小的区域集合
-  regions['英格兰东南小区'] = ukLevel2.filter(ee.Filter.or(
-    ee.Filter.eq('ADM2_NAME', 'Kent'),
-    ee.Filter.eq('ADM2_NAME', 'East Sussex'),
-    ee.Filter.eq('ADM2_NAME', 'West Sussex')
-  )).geometry();
-  
-  regions['英格兰东南中区'] = ukLevel2.filter(ee.Filter.or(
-    ee.Filter.eq('ADM2_NAME', 'Surrey'),
-    ee.Filter.eq('ADM2_NAME', 'Hampshire'),
-    ee.Filter.eq('ADM2_NAME', 'Berkshire')
-  )).geometry();
-  
-  regions['英格兰东南北区'] = ukLevel2.filter(ee.Filter.or(
-    ee.Filter.eq('ADM2_NAME', 'Essex'),
-    ee.Filter.eq('ADM2_NAME', 'Hertfordshire'),
-    ee.Filter.eq('ADM2_NAME', 'Bedfordshire')
-  )).geometry();
-  
-  regions['英格兰西南东区'] = ukLevel2.filter(ee.Filter.or(
-    ee.Filter.eq('ADM2_NAME', 'Dorsetshire'),
-    ee.Filter.eq('ADM2_NAME', 'Wiltshire'),
-    ee.Filter.eq('ADM2_NAME', 'Somersetshire')
-  )).geometry();
-  
-  regions['英格兰西南西区'] = ukLevel2.filter(ee.Filter.or(
-    ee.Filter.eq('ADM2_NAME', 'Cornwall'),
-    ee.Filter.eq('ADM2_NAME', 'Devonshire')
-  )).geometry();
+
   // 初始设置为英格兰东南部
-  var analysisRegion = regions['英国新兴葡萄酒产区'];
+  var analysisRegion = regions['肯特郡'];
   
   // 显示英国边界
   var UK = ukLevel1.geometry();
@@ -1040,7 +661,1073 @@ function testGrapeMLAnalysis() {
   
   print("测试完成!");
   return results;
+
 }
 
-// 执行测试
-testGrapeMLAnalysis();
+// =========== Part 1: 全局变量声明 ===========
+var mapPanel = null;
+var controlPanel = null;
+var countyInput = null;
+var yearSlider = null;
+var startYearInput = null;
+var endYearInput = null;
+var checkboxSuitability = null;
+var checkboxVineyards = null;
+var checkboxRegion = null;
+var chartPanel = null;
+var yearInputPanel = null;
+var currentRegion = null;
+var currentCountyName = 'Kent';
+var modeSelect = 'Single Year';
+var loadingLabel = null;
+var backgroundLoadingInProgress = false;
+var bgLoadingLabel = null;
+
+// 加载行政区数据 - 在全局范围预加载
+var ukLevel2 = ee.FeatureCollection("FAO/GAUL_SIMPLIFIED_500m/2015/level2")
+  .filter(ee.Filter.eq('ADM0_NAME', 'U.K. of Great Britain and Northern Ireland'));
+
+// 加载葡萄园数据 - 在全局范围预加载
+var vineyards = ee.FeatureCollection("projects/ee-cesong333/assets/existing_vineyards");
+
+// 定义全局变量存储功能页面状态
+var currentPage = "home";
+
+// =========== Part 2: 功能函数 ===========
+
+// 定义 computeMask
+function computeMask(region, year) {
+  // 计算掩膜
+  var factors = GrapeML.computeEnvironmentalFactors(region, year);
+  var mask = GrapeML.computeSuitabilityMask(factors).rename('mask').clip(region);
+  return mask;
+}
+
+// 显示加载状态
+function showLoading(message) {
+  if (loadingLabel) {
+    loadingLabel.setValue(message);
+    return;
+  }
+  
+  loadingLabel = ui.Label({
+    value: message,
+    style: {
+      backgroundColor: '#f9edbe',
+      color: '#494949',
+      padding: '8px',
+      margin: '4px 0',
+      textAlign: 'center',
+      fontSize: '14px'
+    }
+  });
+  
+  if (controlPanel) {
+    controlPanel.insert(0, loadingLabel);
+  }
+}
+
+// 显示后台加载进度
+function showBackgroundLoading(message) {
+  // 如果已经有主加载指示器，不显示后台加载
+  if (loadingLabel) return;
+  
+  if (bgLoadingLabel) {
+    bgLoadingLabel.setValue(message);
+  } else {
+    bgLoadingLabel = ui.Label({
+      value: message,
+      style: {
+        color: '#666666',
+        fontSize: '12px',
+        textAlign: 'right',
+        padding: '4px'
+      }
+    });
+    controlPanel.insert(1, bgLoadingLabel);
+  }
+}
+
+// 隐藏后台加载状态
+function hideBackgroundLoading() {
+  if (bgLoadingLabel && controlPanel) {
+    controlPanel.remove(bgLoadingLabel);
+    bgLoadingLabel = null;
+  }
+}
+
+// 隐藏加载状态
+function hideLoading() {
+  if (loadingLabel && controlPanel) {
+    controlPanel.remove(loadingLabel);
+    loadingLabel = null;
+  }
+}
+
+// 工具函数 
+function computeArea(mask, region) {
+  // 计算面积
+  var area = mask.multiply(ee.Image.pixelArea())
+    .reduceRegion({
+      reducer: ee.Reducer.sum(), 
+      geometry: region, 
+      scale: 250, 
+      maxPixels: 1e10
+    })
+    .get('mask');
+    
+  return area;
+}
+
+function getRegionGeometry(name) {
+  var geom;
+  if (name === 'Unsuitable for 3 Years') {
+    geom = ee.FeatureCollection(unsuitableGeomsList.map(function(g) {
+      return ee.Feature(g);
+    })).union().first().geometry();
+  } else {
+    geom = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', name)).first().geometry();
+  }
+  
+  return geom;
+}
+
+// 创建图例行的辅助函数
+function createLegendRow(color, label) {
+  var row = ui.Panel({
+    layout: ui.Panel.Layout.flow('horizontal'),
+    style: {width: '100%', margin: '4px 0', padding: '4px'}
+  });
+
+  var colorBox = ui.Label('', {
+    backgroundColor: color,
+    padding: '8px',
+    margin: '0 8px 0 0'
+  });
+
+  var labelText = ui.Label(label, {margin: '4px 0 0 0'});
+
+  row.add(colorBox);
+  row.add(labelText);
+
+  return row;
+}
+
+// =========== Part 3: 主页面 ===========
+
+// 创建主页面
+function createHomePage() {
+  ui.root.clear();
+  currentPage = "home";
+  
+  // 创建一个面板来容纳所有内容
+  var mainPanel = ui.Panel({
+    layout: ui.Panel.Layout.flow('vertical'),
+    style: {
+      width: '600px',
+      maxWidth: '800px',
+      height: '100%',
+      padding: '20px',
+      margin: 'auto',
+      backgroundColor: 'white'
+    }
+  });
+  
+  // 添加标题
+  var titleLabel = ui.Label('葡萄种植分析工具集', {
+    fontWeight: 'bold',
+    fontSize: '24px',
+    margin: '10px 0 20px 0',
+    textAlign: 'center'
+  });
+  mainPanel.add(titleLabel);
+  
+  // 添加副标题
+  var subtitleLabel = ui.Label('请选择您要使用的功能:', {
+    fontSize: '16px',
+    margin: '0 0 20px 0',
+    textAlign: 'center'
+  });
+  mainPanel.add(subtitleLabel);
+  
+  // 创建功能区面板
+  var functionsPanel = ui.Panel({
+    layout: ui.Panel.Layout.flow('vertical'),
+    style: {
+      width: '100%',
+      padding: '10px'
+    }
+  });
+  
+  // 功能1: 葡萄种植适宜性分析
+  var function1Panel = ui.Panel({
+    layout: ui.Panel.Layout.flow('horizontal'),
+    style: {
+      width: '100%',
+      padding: '10px',
+      margin: '0 0 10px 0',
+      border: '1px solid #ddd',
+      borderRadius: '5px'
+    }
+  });
+  
+  var function1Icon = ui.Label('🍇', {
+    fontSize: '36px',
+    margin: '0 20px 0 10px'
+  });
+  
+  var function1Details = ui.Panel({
+    layout: ui.Panel.Layout.flow('vertical'),
+    style: {
+      width: '70%'
+    }
+  });
+  
+  var function1Title = ui.Label('葡萄种植适宜性分析', {
+    fontWeight: 'bold',
+    fontSize: '16px',
+    margin: '0 0 5px 0'
+  });
+  
+  var function1Description = ui.Label('分析不同区域和年份的葡萄种植适宜性，查看历史数据和趋势变化', {
+    fontSize: '13px'
+  });
+  
+  function1Details.add(function1Title);
+  function1Details.add(function1Description);
+  
+  var function1Button = ui.Button({
+    label: '启动',
+    onClick: function() {
+      startGrapeAnalysis();
+    },
+    style: {
+      padding: '8px 16px',
+      margin: '10px 0 0 0'
+    }
+  });
+  
+  function1Panel.add(function1Icon);
+  function1Panel.add(function1Details);
+  function1Panel.add(function1Button);
+  
+  // 功能2: 占位符功能
+  var function2Panel = ui.Panel({
+    layout: ui.Panel.Layout.flow('horizontal'),
+    style: {
+      width: '100%',
+      padding: '10px',
+      margin: '0 0 10px 0',
+      border: '1px solid #ddd',
+      borderRadius: '5px'
+    }
+  });
+  
+  var function2Icon = ui.Label('🌦️', {
+    fontSize: '36px',
+    margin: '0 20px 0 10px'
+  });
+  
+  var function2Details = ui.Panel({
+    layout: ui.Panel.Layout.flow('vertical'),
+    style: {
+      width: '70%'
+    }
+  });
+  
+  var function2Title = ui.Label('气候影响分析工具', {
+    fontWeight: 'bold',
+    fontSize: '16px',
+    margin: '0 0 5px 0'
+  });
+  
+  var function2Description = ui.Label('分析气候变化对葡萄种植的长期影响（开发中）', {
+    fontSize: '13px'
+  });
+  
+  function2Details.add(function2Title);
+  function2Details.add(function2Description);
+  
+  var function2Button = ui.Button({
+    label: '即将推出',
+    style: {
+      padding: '8px 16px',
+      margin: '10px 0 0 0',
+      color: '#999',
+      backgroundColor: '#f0f0f0'
+    }
+  });
+  
+  function2Panel.add(function2Icon);
+  function2Panel.add(function2Details);
+  function2Panel.add(function2Button);
+  
+  // 添加功能到功能面板
+  functionsPanel.add(function1Panel);
+  functionsPanel.add(function2Panel);
+  
+  // 添加功能面板到主面板
+  mainPanel.add(functionsPanel);
+  
+  // 添加页脚
+  var footerLabel = ui.Label('© 2023 葡萄种植分析系统', {
+    fontSize: '12px',
+    textAlign: 'center',
+    margin: '20px 0 0 0',
+    color: '#666'
+  });
+  mainPanel.add(footerLabel);
+  
+  // 将主面板添加到根
+  ui.root.add(mainPanel);
+}
+
+// =========== Part 4: 葡萄种植适宜性分析页面 ===========
+
+// 客户端处理county列表
+var regionNamesRaw = [];
+var suitableNames = [];
+var unsuitableNames = [];
+var unsuitableGeomsList = [];
+var finalRegionNames = [];
+
+// 启动葡萄种植适宜性分析
+function startGrapeAnalysis() {
+  // 切换到分析页面
+  currentPage = "grapeAnalysis";
+  
+  // 清除当前UI
+  ui.root.clear();
+  
+  // 创建地图面板（全屏效果）
+  mapPanel = ui.Map();
+  ui.root.add(mapPanel);
+  mapPanel.setControlVisibility({
+    zoomControl: false,
+    scaleControl: false,
+    mapTypeControl: false,
+    fullscreenControl: true
+  });
+  mapPanel.style().set({position: 'top-left', width: '100%', height: '100%'});
+
+  // 创建控制面板（加宽版）
+  controlPanel = ui.Panel({
+    layout: ui.Panel.Layout.flow('vertical'),
+    style: {
+      width: '400px', 
+      position: 'top-right', 
+      padding: '8px', 
+      backgroundColor: 'white',
+      maxHeight: '90%'  // 限制最大高度
+    }
+  });
+  mapPanel.add(controlPanel);
+  
+  // 添加返回按钮
+  var backButton = ui.Button({
+    label: '返回主页',
+    onClick: createHomePage,
+    style: {
+      padding: '8px',
+      margin: '0 0 10px 0'
+    }
+  });
+  controlPanel.add(backButton);
+  
+  // 添加初始化消息
+  controlPanel.add(ui.Label('正在初始化葡萄种植适宜性分析...', {
+    fontWeight: 'bold',
+    textAlign: 'center',
+    padding: '10px'
+  }));
+  
+  // 预加载区域名称
+  regionNamesRaw = ukLevel2.aggregate_array('ADM2_NAME').getInfo();
+  
+  // 重置数据
+  suitableNames = [];
+  unsuitableNames = [];
+  unsuitableGeomsList = [];
+  finalRegionNames = [];
+  currentCountyName = 'Kent';
+  
+  // 启动初始化过程
+  initializeRegions();
+}
+
+// 快速加载Kent区域，然后在后台加载其他区域
+function initializeRegions() {
+  showLoading("加载Kent区域数据...");
+  
+  // 先找到Kent区域的索引
+  var kentIndex = -1;
+  for (var i = 0; i < regionNamesRaw.length; i++) {
+    if (regionNamesRaw[i] === 'Kent') {
+      kentIndex = i;
+      break;
+    }
+  }
+  
+  // 如果找不到Kent，使用第一个区域
+  if (kentIndex === -1) {
+    kentIndex = 0;
+    currentCountyName = regionNamesRaw[0];
+  } else {
+    currentCountyName = 'Kent';
+  }
+  
+  // 先只加载Kent区域
+  var county = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', currentCountyName)).first();
+  var geom = county.geometry();
+  var checkYear = '2023';
+  
+  var mask = computeMask(geom, checkYear);
+  
+  // 异步计算Kent区域面积
+  mask.multiply(ee.Image.pixelArea())
+    .reduceRegion({
+      reducer: ee.Reducer.sum(),
+      geometry: geom,
+      scale: 250,
+      maxPixels: 1e10
+    })
+    .evaluate(function(result) {
+      var area = result ? result.mask : 0;
+      var hasArea = area > 0;
+      
+      // 将Kent添加到适当列表
+      if (hasArea) {
+        suitableNames.push(currentCountyName);
+      } else {
+        unsuitableNames.push(currentCountyName);
+        unsuitableGeomsList.push(geom);
+      }
+      
+      // 临时初始化区域列表，只包含Kent
+      finalRegionNames = suitableNames.slice();
+      
+      // 构建UI，显示Kent数据
+      hideLoading();
+      rebuildMainPanel();
+      
+      // 开始在后台加载其他区域
+      backgroundLoadingInProgress = true;
+      continueLoadingRegions(0, kentIndex);
+    });
+}
+
+// 继续在后台加载其他区域
+function continueLoadingRegions(startIdx, skipIdx) {
+  // 如果已经处理完所有区域，完成后台加载
+  if (startIdx >= regionNamesRaw.length) {
+    finalizeRegionLists();
+    return;
+  }
+  
+  // 跳过已经处理的Kent区域
+  if (startIdx === skipIdx) {
+    continueLoadingRegions(startIdx + 1, skipIdx);
+    return;
+  }
+  
+  var name = regionNamesRaw[startIdx];
+  var county = ukLevel2.filter(ee.Filter.eq('ADM2_NAME', name)).first();
+  var geom = county.geometry();
+  var checkYear = '2023';
+  
+  // 保存当前的currentCountyName
+  var savedCurrentCountyName = currentCountyName;
+  currentCountyName = name; // 临时设置为当前处理的区域
+  
+  var mask = computeMask(geom, checkYear);
+  
+  // 显示后台进度
+  showBackgroundLoading("后台加载区域: " + (startIdx + 1) + "/" + regionNamesRaw.length);
+  
+  // 异步计算面积
+  mask.multiply(ee.Image.pixelArea())
+    .reduceRegion({
+      reducer: ee.Reducer.sum(),
+      geometry: geom,
+      scale: 250,
+      maxPixels: 1e10
+    })
+    .evaluate(function(result) {
+      var area = result ? result.mask : 0;
+      var hasArea = area > 0;
+      
+      if (hasArea) {
+        suitableNames.push(name);
+      } else {
+        unsuitableNames.push(name);
+        unsuitableGeomsList.push(geom);
+      }
+      
+      // 恢复原来的currentCountyName
+      currentCountyName = savedCurrentCountyName;
+      
+      // 继续处理下一个区域
+      ee.Number(1).evaluate(function() {
+        continueLoadingRegions(startIdx + 1, skipIdx);
+      });
+    });
+}
+
+// 完成所有区域的加载
+function finalizeRegionLists() {
+  // 更新最终区域列表
+  finalRegionNames = suitableNames.slice();
+  if (unsuitableNames.length > 0) {
+    finalRegionNames.push('Unsuitable for 3 Years');
+  }
+  
+  backgroundLoadingInProgress = false;
+  hideBackgroundLoading();
+  
+  // 如果用户处于查看区域表格的状态，更新表格
+  var isViewingTable = controlPanel.widgets().length() > 0 && 
+                        controlPanel.widgets().get(0).getValue && 
+                        controlPanel.widgets().get(0).getValue() === 'County Table (Click to Select)';
+  
+  if (isViewingTable) {
+    showCountyTable();
+  }
+}
+
+// 主界面重建
+function rebuildMainPanel() {
+  controlPanel.clear();
+  
+  // 添加返回按钮
+  var backButton = ui.Button({
+    label: '返回主页',
+    onClick: createHomePage,
+    style: {
+      padding: '8px',
+      margin: '0 0 10px 0'
+    }
+  });
+  controlPanel.add(backButton);
+
+  // 如果后台加载正在进行，显示状态
+  if (backgroundLoadingInProgress) {
+    showBackgroundLoading("区域数据加载中...");
+  }
+
+  // 1. County选择部分
+  controlPanel.add(ui.Label('1. 选择区域 (输入名称或查看表格)', {fontWeight: 'bold'}));
+
+  var viewTableButton = ui.Button({
+    label: '查看区域表格',
+    onClick: showCountyTable
+  });
+  controlPanel.add(viewTableButton);
+
+  // 创建一个水平面板来放置输入框和确认按钮
+  var inputPanel = ui.Panel({
+    layout: ui.Panel.Layout.flow('horizontal'),
+    style: {width: '100%'}
+  });
+
+  countyInput = ui.Textbox({
+    placeholder: '输入区域名称...',
+    value: currentCountyName,
+    style: {width: '300px'}
+  });
+
+  var confirmButton = ui.Button({
+    label: '确认',
+    onClick: function() {
+      var name = countyInput.getValue();
+      if (finalRegionNames.indexOf(name) !== -1) {
+        currentCountyName = name;
+        showLoading("更新区域数据...");
+        // 使用evaluate延迟执行
+        ee.Number(1).evaluate(function() {
+          updateRegion();
+          hideLoading();
+        });
+      } else {
+        print('⚠️ 未找到区域: ' + name);
+      }
+    }
+  });
+
+  inputPanel.add(countyInput);
+  inputPanel.add(confirmButton);
+  controlPanel.add(inputPanel);
+
+  // 2. 面积图表部分
+  controlPanel.add(ui.Label('2. 适宜区域面积 (km²)', {fontWeight: 'bold'}));
+  chartPanel = ui.Panel();
+  controlPanel.add(chartPanel);
+
+  // 3. 视图模式部分
+  controlPanel.add(ui.Label('3. 查看模式', {fontWeight: 'bold'}));
+
+  // 创建一个水平面板来放置两个按钮
+  var buttonPanel = ui.Panel({
+    layout: ui.Panel.Layout.flow('horizontal'),
+    style: {width: '100%', margin: '4px 0'}
+  });
+
+  var singleYearButton = ui.Button({
+    label: '单年查看',
+    onClick: function() {
+      modeSelect = 'Single Year';
+      updateViewMode();
+    },
+    style: {
+      margin: '0 8px 0 0',
+      width: '180px'
+    }
+  });
+
+  var multiYearButton = ui.Button({
+    label: '多年分析',
+    onClick: function() {
+      modeSelect = 'Multi-Year';
+      updateViewMode();
+    },
+    style: {
+      width: '180px'
+    }
+  });
+
+  buttonPanel.add(singleYearButton);
+  buttonPanel.add(multiYearButton);
+  controlPanel.add(buttonPanel);
+
+  // 单年模式的滑块
+  yearSlider = ui.Slider({
+    min: 2010, max: 2023, value: 2023, step: 1,
+    onChange: function() { 
+      if (currentRegion) {
+        showLoading("更新年份数据...");
+        // 使用evaluate延迟执行
+        ee.Number(1).evaluate(function() {
+          updateYearlyMap(currentRegion, yearSlider.getValue());
+          hideLoading();
+        });
+      }
+    },
+    style: {width: '350px'}
+  });
+
+  // 多年模式的输入框面板
+  yearInputPanel = ui.Panel({
+    layout: ui.Panel.Layout.flow('horizontal'),
+    style: {width: '100%', margin: '4px 0'}
+  });
+
+  // 创建一个水平面板专门放置From和To输入框
+  var yearInputsContainer = ui.Panel({
+    layout: ui.Panel.Layout.flow('horizontal'),
+    style: {width: '100%', margin: '0'}
+  });
+
+  var fromLabel = ui.Label('起始年份:', {margin: '4px 4px 0 0'});
+  startYearInput = ui.Textbox({
+    placeholder: '2021',
+    style: {width: '80px', margin: '0 8px 0 0'}
+  });
+
+  var toLabel = ui.Label('结束年份:', {margin: '4px 4px 0 0'});
+  endYearInput = ui.Textbox({
+    placeholder: '2023',
+    style: {width: '80px'}
+  });
+
+  yearInputsContainer.add(fromLabel);
+  yearInputsContainer.add(startYearInput);
+  yearInputsContainer.add(toLabel);
+  yearInputsContainer.add(endYearInput);
+  yearInputPanel.add(yearInputsContainer);
+
+  // 添加滑块和年份输入面板
+  controlPanel.add(yearSlider);
+  controlPanel.add(yearInputPanel);
+
+  // 默认隐藏多年输入面板
+  yearInputPanel.style().set('shown', false);
+
+  var updateButton = ui.Button({
+    label: '更新地图',
+    onClick: function() {
+      if (!currentRegion) return;
+      
+      if (modeSelect === 'Single Year') {
+        showLoading("更新地图...");
+        // 使用evaluate延迟执行
+        ee.Number(1).evaluate(function() {
+          updateYearlyMap(currentRegion, yearSlider.getValue());
+          hideLoading();
+        });
+      } else {
+        var s = parseInt(startYearInput.getValue());
+        var e = parseInt(endYearInput.getValue());
+        if (isNaN(s) || isNaN(e) || s >= e) {
+          return;
+        }
+        showLoading("分析多年数据...");
+        // 使用evaluate延迟执行
+        ee.Number(1).evaluate(function() {
+          showPersistentSuitability(currentRegion, s, e);
+          hideLoading();
+        });
+      }
+    }
+  });
+  controlPanel.add(updateButton);
+
+  // 4. 图层控制部分
+  controlPanel.add(ui.Label('4. 图层控制', {fontWeight: 'bold', margin: '12px 0 4px'}));
+
+  // 添加图例面板
+  var legendPanel = ui.Panel({
+    layout: ui.Panel.Layout.flow('vertical'),
+    style: {
+      padding: '8px',
+      margin: '0 0 8px 0',
+      backgroundColor: 'white'
+    }
+  });
+
+  // 添加各个图层的复选框和图例
+  checkboxRegion = ui.Checkbox({
+    label: '', 
+    value: true, 
+    onChange: function() {
+      showLoading("更新地图...");
+      // 使用evaluate延迟执行
+      ee.Number(1).evaluate(function() {
+        updateRegion();
+        hideLoading();
+      });
+    }
+  });
+  var regionRow = ui.Panel([checkboxRegion, createLegendRow('orange', '区域边界')], 
+    ui.Panel.Layout.flow('horizontal'));
+  legendPanel.add(regionRow);
+
+  checkboxSuitability = ui.Checkbox({
+    label: '', 
+    value: true, 
+    onChange: function() {
+      showLoading("更新地图...");
+      // 使用evaluate延迟执行
+      ee.Number(1).evaluate(function() {
+        updateRegion();
+        hideLoading();
+      });
+    }
+  });
+  var suitabilityRow = ui.Panel([checkboxSuitability, createLegendRow('#00FF00', '适宜种植区域')],
+    ui.Panel.Layout.flow('horizontal'));
+  legendPanel.add(suitabilityRow);
+
+  checkboxVineyards = ui.Checkbox({
+    label: '', 
+    value: true, 
+    onChange: function() {
+      showLoading("更新地图...");
+      // 使用evaluate延迟执行
+      ee.Number(1).evaluate(function() {
+        updateRegion();
+        hideLoading();
+      });
+    }
+  });
+  var vineyardsRow = ui.Panel([checkboxVineyards, createLegendRow('purple', '现有葡萄园 (2023)')],
+    ui.Panel.Layout.flow('horizontal'));
+  legendPanel.add(vineyardsRow);
+
+  controlPanel.add(legendPanel);
+
+  // 更新区域
+  currentRegion = getRegionGeometry(currentCountyName);
+  updateRegion();
+}
+
+// 更新视图模式
+function updateViewMode() {
+  if (modeSelect === 'Single Year') {
+    yearSlider.style().set('shown', true);
+    yearInputPanel.style().set('shown', false);
+  } else {
+    yearSlider.style().set('shown', false);
+    yearInputPanel.style().set('shown', true);
+  }
+}
+
+// 更新地图区域 - 分批处理年度数据
+function updateRegion() {
+  chartPanel.clear();
+  mapPanel.layers().reset();
+  yearSlider.setValue(2023);
+  
+  if (!currentRegion) {
+    currentRegion = getRegionGeometry(currentCountyName);
+  }
+
+  mapPanel.centerObject(currentRegion, 8);
+
+  if (checkboxRegion.getValue()) {
+    mapPanel.addLayer(currentRegion, {
+      color: 'orange',
+      fillColor: '00000000',
+      width: 2
+    }, 'Selected Region');
+  }
+
+  // 分批处理年度数据来构建图表
+  var years = ee.List.sequence(2010, 2023).getInfo();
+  var batchSize = 4; // 每批处理4年数据
+  var features = [];
+  
+  showLoading("构建时间序列图表...");
+  processBatch(0);
+  
+  function processBatch(startIdx) {
+    if (startIdx >= years.length) {
+      // 所有批次处理完毕，创建图表
+      finishChart();
+      return;
+    }
+    
+    var endIdx = Math.min(startIdx + batchSize, years.length);
+    var batchYears = years.slice(startIdx, endIdx);
+    
+    showLoading("构建时间序列图表... (" + endIdx + "/" + years.length + ")");
+    
+    // 处理这一批年份
+    var batchFeatures = batchYears.map(function(y) {
+      var mask = computeMask(currentRegion, String(y));
+      var area = computeArea(mask, currentRegion);
+      return ee.Feature(null, {year: y, area_km2: ee.Number(area).divide(1e6)});
+    });
+    
+    features = features.concat(batchFeatures);
+    
+    // 使用GEE异步机制处理下一批
+    ee.Number(1).evaluate(function() {
+      processBatch(endIdx);
+    });
+  }
+  
+  function finishChart() {
+    // 创建时间序列图表
+    var ts = ee.FeatureCollection(features);
+    var chart = ui.Chart.feature.byFeature(ts, 'year', 'area_km2')
+      .setChartType('LineChart')
+      .setOptions({
+        title: '多年适宜区域面积',
+        hAxis: {title: '年份', format: '####'},
+        vAxis: {title: '面积 (km²)'},
+        lineWidth: 2,
+        pointSize: 5,
+        height: 220,
+        series: {0: {color: '#228B22'}},
+        backgroundColor: {fill: 'white'},
+        legend: {position: 'none'}
+      });
+    chartPanel.add(chart);
+    
+    // 添加2023年适宜性图层
+    if (checkboxSuitability.getValue()) {
+      var m = computeMask(currentRegion, '2023');
+      mapPanel.addLayer(m.selfMask(), {
+        palette: ['#00FF00'],
+        opacity: 0.7
+      }, 'Suitability 2023');
+    }
+    
+    // 添加葡萄园图层
+    if (checkboxVineyards.getValue()) {
+      mapPanel.addLayer(vineyards.filterBounds(currentRegion), {
+        color: 'purple',
+        width: 2,
+        fillColor: '800080AA'
+      }, 'Vineyards (2023)');
+    }
+    
+    hideLoading();
+  }
+}
+
+// 单年模式
+function updateYearlyMap(region, year) {
+  mapPanel.layers().reset();
+
+  if (checkboxRegion.getValue()) {
+    mapPanel.addLayer(region, {
+      color: 'orange',
+      fillColor: '00000000',
+      width: 2
+    }, 'Selected Region');
+  }
+
+  var mask = computeMask(region, String(year));
+  mapPanel.addLayer(mask.selfMask(), {
+    palette: ['#228B22'],
+    opacity: 0.7
+  }, 'Suitability ' + year);
+
+  if (checkboxVineyards.getValue()) {
+    mapPanel.addLayer(vineyards.filterBounds(region), {
+      color: 'purple',
+      width: 2,
+      fillColor: '800080AA'
+    }, 'Vineyards (2023)');
+  }
+}
+
+// 多年一致适宜 - 分批处理年份
+function showPersistentSuitability(region, startYear, endYear) {
+  mapPanel.layers().reset();
+
+  if (checkboxRegion.getValue()) {
+    mapPanel.addLayer(region, {
+      color: 'orange',
+      fillColor: '00000000',
+      width: 2
+    }, 'Selected Region');
+  }
+
+  // 分批处理年份
+  var totalYears = endYear - startYear + 1;
+  var batchSize = 3; // 每批处理3年
+  var maskImages = [];
+  
+  processYearBatch(startYear);
+  
+  function processYearBatch(currentYear) {
+    if (currentYear > endYear) {
+      // 所有年份处理完毕
+      finalizePersistentMap();
+      return;
+    }
+    
+    var endYearBatch = Math.min(currentYear + batchSize - 1, endYear);
+    showLoading("处理年份 " + currentYear + " 到 " + endYearBatch + " (" + 
+               (endYearBatch - startYear + 1) + "/" + totalYears + ")");
+    
+    // 处理这一批年份
+    for (var y = currentYear; y <= endYearBatch; y++) {
+      maskImages.push(computeMask(region, String(y)));
+    }
+    
+    // 使用GEE异步机制处理下一批
+    ee.Number(1).evaluate(function() {
+      processYearBatch(endYearBatch + 1);
+    });
+  }
+  
+  function finalizePersistentMap() {
+    var allYears = ee.ImageCollection(maskImages).reduce(ee.Reducer.allNonZero());
+    mapPanel.addLayer(allYears.selfMask(), {
+      palette: ['#006400'],
+      opacity: 0.8
+    }, 'Persistent ' + startYear + '-' + endYear);
+
+    if (checkboxVineyards.getValue()) {
+      mapPanel.addLayer(vineyards.filterBounds(region), {
+        color: 'purple',
+        width: 2,
+        fillColor: '800080AA'
+      }, 'Vineyards (2023)');
+    }
+    
+    hideLoading();
+  }
+}
+
+// 显示County表格
+function showCountyTable() {
+  controlPanel.clear();
+  
+  // 添加返回按钮
+  var backButton = ui.Button({
+    label: '返回主页',
+    onClick: createHomePage,
+    style: {
+      padding: '8px',
+      margin: '0 0 10px 0'
+    }
+  });
+  controlPanel.add(backButton);
+  
+  controlPanel.add(ui.Label('区域列表 (点击选择)', {fontWeight: 'bold'}));
+
+  var grid = ui.Panel({
+    layout: ui.Panel.Layout.flow('vertical'), 
+    style: {width: '380px', height: '400px', padding: '8px'}
+  });
+  
+  // 如果后台加载正在进行，显示状态
+  if (backgroundLoadingInProgress) {
+    showBackgroundLoading("区域数据加载中...");
+  }
+  
+  showLoading("加载区域列表...");
+  
+  // 使用GEE异步机制加载表格
+  ee.Number(1).evaluate(function() {
+    var row = ui.Panel({
+      layout: ui.Panel.Layout.flow('horizontal'), 
+      style: {width: '380px'}
+    });
+    var count = 0;
+
+    suitableNames.forEach(function(name) {
+      var label = ui.Button({
+        label: name,
+        onClick: function() {
+          currentCountyName = name;
+          rebuildMainPanel();
+        }
+      });
+      label.style().set('width', '120px');
+      row.add(label);
+      count++;
+      if (count % 3 === 0) {
+        grid.add(row);
+        row = ui.Panel({
+          layout: ui.Panel.Layout.flow('horizontal'), 
+          style: {width: '380px'}
+        });
+      }
+    });
+
+    if (count % 3 !== 0) {
+      grid.add(row);
+    }
+
+    if (unsuitableNames.length > 0) {
+      grid.add(ui.Label(' '));
+      var unsuitBtn = ui.Button({
+        label: '不适宜区域',
+        onClick: function() {
+          currentCountyName = 'Unsuitable for 3 Years';
+          rebuildMainPanel();
+        }
+      });
+      unsuitBtn.style().set('width', '380px');
+      grid.add(unsuitBtn);
+    }
+
+    var closeButton = ui.Button({
+      label: '返回',
+      onClick: rebuildMainPanel
+    });
+    grid.add(closeButton);
+
+    controlPanel.add(grid);
+    hideLoading();
+  });
+}
+
+// =========== Part 5: 启动应用 ===========
+
+// 启动主页面
+createHomePage();
