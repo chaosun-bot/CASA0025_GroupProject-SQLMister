@@ -203,16 +203,13 @@ function showCountyTable() {
   controlPanel.add(grid)
 }
 ```
+![Select County](images/1.11.png){fig-align="center" width=70% height=450px}
 
-::: {layout-ncol="2"}
+![2010-2023 suitability area trend map](images/1.1.png){width=100% height=600px}
 
-![](images/1.1.png)
 
-![](images/1.11.png)
 
-:::
-
-#### 3.3.2 Legends Control
+#### 3.3.2 Layers Control
 
 
 Provides detailed layer controls to show/hide area boundaries, suitable areas, and existing vineyards.
@@ -273,7 +270,7 @@ Provides detailed layer controls to show/hide area boundaries, suitable areas, a
   legendPanel.add(vineyardsRow);
 
 ```
-![](images/1.2.png){fig-alt="Figure 2" width="100%"}
+![Layer Control](images/1.2.png){fig-align="center" width="70%"}
 
 #### 3.3.3 Single-year and Multi-year analysis
 
@@ -298,7 +295,7 @@ var multiYearButton = ui.Button({
 
 ```
 
-![](images/1.3.png){fig-alt="Figure 3" width="100%"}
+![2015-2023 Muti-year Analysis](images/1.3.png){fig-alt="Figure 3" width="100%"}
 
 ### 3.4 Function 2 : Regional Comparison Analysis
 
@@ -356,7 +353,7 @@ Supports users to freely draw any area (e.g. rectangle, polygon) on the map, sav
         hideLoading();
       });
 ```
-![](images/2.1.png){fig-alt="Figure 4" width="100%"}
+![Drawing Area](images/2.1.png){fig-alt="Figure 4" width="100%"}
 
 #### 3.4.2 Trends in Suitability and Statistical Analyses
 
@@ -393,7 +390,7 @@ For each mapped area, a trend map of the area of suitability for each area was g
           suitable_area: area
         };
 ```
-![](images/2.2.png){fig-alt="Figure 5" width="100%"}
+![Trend and Statistical Analyses](images/2.2.png){fig-alt="Figure 5" width="100%"}
 
 #### 3.4.3 Support for Comparative Analyses in Two Regions
 
@@ -461,15 +458,11 @@ Supports detailed comparisons between two areas, outputs area comparison tables 
       
       comparisonPanel.add(conclusionPanel);
 ```
-:::{.columns}
-::: {.column width="50%"}
-![f1](images/2.32.png)
-:::
 
-::: {.column width="50%"}
-![f2](images/2.3.png)
-:::
-:::
+![Select Two Areas](images/2.3.png)
+
+
+![Comparison](images/2.32.png)
 
 ## 4. Interaction Design
 
