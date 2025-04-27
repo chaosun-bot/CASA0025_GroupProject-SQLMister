@@ -175,6 +175,7 @@ xxxxx
 xxxxx
 
 ## 4. Interaction Design
+
 Our UI design adheres to five key principles:
 
 Usability: The interface adopts an intuitive layout, with the main functional panel fixed on the right and a legend positioned on the bottom left, ensuring that users can easily navigate and efficiently operate the system.
@@ -184,8 +185,19 @@ Aesthetics: Clear modular separation between grape suitability analysis and regi
 Consistency: Uniform styles are maintained across modules in layer colors, button designs, and interaction workflows, ensuring a coherent user experience. Legends use consistent color schemes to aid map interpretation.
 
 Flexibility: The system supports both predefined county selections and user-drawn custom areas, catering to varied spatial analysis needs. Users can flexibly switch between single-year and multi-year views to explore different temporal patterns.
+
 ## 5.Limitations
 
+Asynchronous Loading: In order to increase the loading speed, the asynchronous loading method is chosen, but this requires a high level of user operation. The user needs to wait for the current operation to finish loading before proceeding to the next operation, otherwise it may lead to the error of loading the result multiple times.
+
+Insufficient machine learning training data: The current training sample size is relatively limited, which may lead to a decrease in prediction accuracy.
+
+Lagging vineyard area data: The existing vineyard area data from OSM (Open Street Map) has some lag and incompleteness, which may affect the accuracy of the results.
+
+
 ## 6.Future work
+
+Expanding site selection factors: When selecting sites and comparing sites, more factors beyond the vineyard environment need to be considered, such as accessibility, regulations, and the surrounding environment.
+Grape Variety Classification: Implement classification of different grape varieties to enable more targeted vineyard area analysis and selection.
 
 ## 7.References
