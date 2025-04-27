@@ -1,7 +1,7 @@
 ---
 title: "CASA0025 Final Project: Mapping Vineyard Suitability in the UK Using Remote Sensing and Machine Learning"
 format: html
-editor: visual
+author: SQLMister
 bibliography: references.bib
 ---
 
