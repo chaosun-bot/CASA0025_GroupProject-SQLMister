@@ -63,8 +63,6 @@ Replace the link below with the link to your application.
 
 ### 2.1 Data Preprocessing
 
-## 时间段和英国边界设置
-
 ```javascript
 var countries = ee.FeatureCollection("USDOS/LSIB_SIMPLE/2017");
 var UK_boundary = countries.filter(ee.Filter.eq("country_na", "United Kingdom"));
