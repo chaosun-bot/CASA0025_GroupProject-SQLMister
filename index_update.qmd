@@ -2,6 +2,8 @@
 title: "CASA0025 Final Project: Mapping Vineyard Suitability in the UK Using Remote Sensing and Machine Learning"
 format: html
 editor: visual
+bibliography: references.bib
+
 ---
 
 # Mapping Vineyard Suitability in the UK Using Remote Sensing and Machine Learning
@@ -12,7 +14,7 @@ Fill in the sections below to provide a brief summary of your project. Each sect
 
 ## 1.1 Problem Statement
 
-Our project addresses the challenge of identifying optimal regions for grape vineyard cultivation in the UK by integrating multiple environmental and climatic factors. Traditional approaches often rely on expert intuition or static maps, lacking dynamic data-driven analysis. Recent studies show that from 1981–2018, growing season temperatures in major UK viticulture regions have risen by approximately 1°C, now exceeding 14°C GST, accelerating vineyard expansion and variety diversification [@doi:10.20870/oeno-one.2022.56.3.5398]. With climate change increasingly affecting viticulture conditions, it is essential to develop an interactive tool that combines historical data, remote sensing, and machine learning. Our application allows users to dynamically assess vineyard suitability at various spatial scales and across time, providing a more adaptive and evidence-based decision-making framework for land use planning and agricultural investment.
+Our project addresses the challenge of identifying optimal regions for grape vineyard cultivation in the UK by integrating multiple environmental and climatic factors. Traditional approaches often rely on expert intuition or static maps, lacking dynamic data-driven analysis. Recent studies show that from 1981–2018, growing season temperatures in major UK viticulture regions have risen by approximately 1°C, now exceeding 14°C GST, accelerating vineyard expansion and variety diversification [@nesbitt2022climate]. With climate change increasingly affecting viticulture conditions, it is essential to develop an interactive tool that combines historical data, remote sensing, and machine learning. Our application allows users to dynamically assess vineyard suitability at various spatial scales and across time, providing a more adaptive and evidence-based decision-making framework for land use planning and agricultural investment.
 
 ## 1.2 End User
 
