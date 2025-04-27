@@ -1,0 +1,160 @@
+---
+title: "CASA0025 Final Project: Mapping Vineyard Suitability in the UK Using Remote Sensing and Machine Learning"
+format: html
+editor: visual
+---
+
+# Mapping Vineyard Suitability in the UK Using Remote Sensing and Machine Learning
+
+# 1. Project Summary
+
+Fill in the sections below to provide a brief summary of your project. Each section should have no more than 100 words. Do not edit any of the headings.
+
+## 1.1 Problem Statement
+
+Our project addresses the challenge of identifying optimal regions for grape vineyard cultivation in the UK by integrating multiple environmental and climatic factors. Traditional approaches often rely on expert intuition or static maps, lacking dynamic data-driven analysis. Recent studies show that from 1981–2018, growing season temperatures in major UK viticulture regions have risen by approximately 1°C, now exceeding 14°C GST, accelerating vineyard expansion and variety diversification [@doi:10.20870/oeno-one.2022.56.3.5398]. With climate change increasingly affecting viticulture conditions, it is essential to develop an interactive tool that combines historical data, remote sensing, and machine learning. Our application allows users to dynamically assess vineyard suitability at various spatial scales and across time, providing a more adaptive and evidence-based decision-making framework for land use planning and agricultural investment.
+
+## 1.2 End User
+
+The application is designed for vineyard developers. It enables users to explore vineyard suitability across the UK, making predictions based on environmental factors such as temperature, elevation, and slope. By offering spatial and temporal insights, the tool helps optimize land selection, support climate adaptation, and reduce investment risks. Its intuitive interface ensures accessibility even for users without technical GIS expertise. Additionally, by interviewing investors interested in establishing vineyards in the UK, we collected key insights into ideal growing conditions. Investors prioritize stable climates and seek regions suitable for cultivating high-quality grape varieties, further informing the application’s focus and design.
+
+<div>
+
+![Records of communication with users](images/end_user.png){fig-align="center" width="40%"}
+
+</div>
+
+## 1.3 Data
+
+DEM: JAXA/ALOS/AW3D30/V2_2 — ALOS DSM: Global 30m v3.2 Temperature: MODIS/006/MOD11A2 — MODIS Land Surface Temperature and Emissivity Slope: USGS/SRTMGL1_003 — NASA SRTM Digital Elevation 30m GST : TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE GDD : TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE GSP : TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE Existing Vineyard: Exported from OpenStreetMap (OSM) Land Use: Land Cover Map 10m — UK Centre for Ecology & Hydrology
+
+-   **GST** ensures warm enough growing season temperatures.
+
+-   **GDD** captures accumulated heat units necessary for ripening.
+
+-   **GSP** screens for sufficient but not excessive rainfall.
+
+-   **Slope** helps in drainage and solar exposure.
+
+-   **Elevation** filters areas too high or low for optimal grape production.
+
+## 1.4 Methodology
+
+We preprocess environmental datasets by applying thresholds for suitable viticultural conditions, including temperature, precipitation, elevation, solar radiation, and vegetation cover. After stacking key features, stratified sampling generates positive (vineyard) and negative (unsuitable) training data for a Random Forest classifier. The model predicts continuous suitability scores, categorizing regions into unsuitable, suitable, and highly suitable (\>70%) areas, with high accuracy validated by cross-validation. Predictions support county-level selections, user-drawn custom polygons, and regional comparisons between two areas. Time-series analyses from 2010 to 2023 allow users to explore spatial and temporal shifts in vineyard suitability under changing environmental conditions.
+
+## 1.5 Interface
+
+The application features a modular, panel-based interface designed for clarity, interactivity, and user-friendliness. Module 1 allows users to select any UK county to view historical trends in vineyard suitability. Module 2 enables users to draw custom areas directly on the map and run machine learning-based suitability predictions for those regions. Module 3 supports side-by-side comparison between two user-defined regions to facilitate comparative spatial analysis. Results are displayed through interactive maps, dynamically updating area charts, and easy-to-read statistics. The entire interface is built using Earth Engine’s UI tools to ensure smooth interaction even with large datasets.
+
+## The Application
+
+Replace the link below with the link to your application.
+
+::: column-page
+<iframe src="https://ollielballinger.users.earthengine.app/view/turkey-earthquake" width="100%" height="700px">
+
+</iframe>
+:::
+
+## 2. How it Works
+
+### 2.1 Data Preprocessing
+
+``` javascript等待修改
+var l8 = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
+  .filterBounds(UK_boundary)
+  .filterDate('2024-01-01', '2024-12-31')
+  .map(addIndices);
+```
+
+This project focuses on the United Kingdom from 2010 to 2023.（待修改）\
+Five environmental variables were selected based on literature thresholds:\
+GST 14.1–15.5°C (Nesbitt et al., 2022),\
+GDD 974–1223°C·days (Nesbitt et al., 2022),\
+GSP 273–540mm (Nesbitt et al., 2022),\
+Slope 5–10% (Fraga et al., 2018),\
+Elevation 0–220m (Gladstones, 1992).\
+Landsat 8 imagery was clipped to the UK boundary and masks were generated with moderate threshold adjustments.
+
+``` javascript
+var gstMask = gst.gte(14.0).and(gst.lte(16.0));
+var gddMask = gdd.gte(950).and(gdd.lte(1250));
+var gspMask = gsp.gte(250).and(gsp.lte(600));
+var slopeMask = slope.gte(2).and(slope.lte(15));
+var elevationMask = elevation.gte(5).and(elevation.lte(250));
+```
+
+::: {layout-ncol="3"}
+![GSD Map](images/gsd.png)
+
+![Slope Map](images/slope.png)
+
+![Elevation Map](images/elevation.png)
+
+![GDD Map](images/gdd.png)
+
+![GSP Map](images/gsp.png)
+
+![Land Use Map](images/landuse.png)
+:::
+
+Land cover was reclassified to retain grassland, shrubland, and cropland.\
+All masks were combined using logical AND operations to select suitable areas.
+
+### 2.3 Machine Learning Modeling
+
+We train a Random Forest model to enhance prediction granularity beyond hard thresholds.\
+Positive samples are generated by randomly selecting points within existing vineyard areas, while negative samples are extracted from unsuitable zones outside the environmental mask.
+
+The feature stack includes all key variables:
+
+``` javascript
+var featureImage = ee.Image.cat([
+  factors.gst.rename('GST'),
+  factors.gdd.rename('GDD'),
+  factors.gsp.rename('GSP'),
+  factors.slope.rename('slope'),
+  factors.aspect.rename('aspect'),
+  factors.elevation.rename('elevation'),
+  factors.latitude.rename('latitude')
+]);
+```
+
+The Random Forest classifier is trained and output as probability scores:
+
+``` javascript
+var classifier = ee.Classifier.smileRandomForest({numberOfTrees: 50}).train({
+  features: training,
+  classProperty: 'class',
+  inputProperties: features
+});
+var probabilityClassifier = classifier.setOutputMode('PROBABILITY');
+var suitabilityScore = featureImage.classify(probabilityClassifier);
+```
+
+Predictions above 70% are categorized as highly suitable regions.\
+Model accuracy is monitored using out-of-bag error rates and confusion matrices.
+
+### 2.4 User Interface Design
+
+The user interface is structured around three modules for intuitive exploration:
+
+-   **Module 1**: Users select any county to view vineyard suitability trends from 2010 to 2023, with time-series charts automatically generated.
+-   **Module 2**: Users draw custom regions; the system runs full machine learning analysis, returning suitability maps and area statistics.
+-   **Module 3**: Users can save two drawn regions and compare their vineyard suitability side-by-side through synchronized charts.
+
+To assist users in Module 3, the application automatically loads the national vineyard suitability mask after module switching:
+
+``` javascript
+var fullUKMask = computeMask(UK_boundary.geometry(), '2023');
+mapPanel.addLayer(fullUKMask.selfMask(), {palette: ['#00FF00'], opacity: 0.7}, 'UK Vineyard Suitability');
+```
+
+This ensures users quickly focus on viable areas and avoid drawing in unsuitable regions.\
+Real-time chart updates, dynamic map layer control, and modular panels provide a smooth and scalable user experience for both technical and non-technical audiences.
+
+You can include images:
+
+![Pixelwise T-Test, 2018](images/beirut_change_2020.jpg)
+
+and math: $$ \Large t = {\frac{\overline{x_1}-\overline{x_2}} {\sqrt{\frac{s^2_1}{n_1} + \frac{s^2_2}{n_2}}}} $$
