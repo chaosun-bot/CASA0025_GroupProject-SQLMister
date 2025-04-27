@@ -146,21 +146,310 @@ var suitabilityScore = featureImage.classify(probabilityClassifier);
 ```
 
 If sample generation is insufficient, the basic environmental mask serves as a fallback to maintain prediction stability.
-### 3.3 Function 1 :
 
-#### 3.3.1 xxxxx
-xxxxx
+### 3.3 Function 1 : Grape Cultivation Suitability Analysis
 
-#### 3.3.2 xxxxx
-xxxxx
+#### 3.3.1 Free Switching
 
-### 3.4 Function 2 :
+It supports users to freely switch between counties to view the 2010-2023 suitability area trend map, and loads all UK (county) suitability data asynchronously in the background to improve the speed of user experience.
 
-#### 3.4.1 xxxxx
-xxxxx
+``` javascript
+function initializeRegions() {
+  
+  // Build the initial UI
+  rebuildMainPanel()
+  // Start asynchronous background loading
+  continueLoadingRegions(0, kentIndex)
+}
 
-#### 3.4.2 xxxxx
-xxxxx
+
+// Rebuild the main panel to display current region data
+function rebuildMainPanel() {
+  // Build UI controls
+  countyInput = ui.Textbox({value: currentCountyName})
+  
+  // Process current region data
+  currentRegion = getRegionGeometry(currentCountyName)
+  updateRegion()
+}
+
+// Update region data and trend chart
+function updateRegion() {
+  
+  // Create a batch of year data
+  var years = [2010...2023]
+  processBatch(0)
+  
+  // Batch processing: compute suitable area for each year
+  function processBatch(startIdx) {...
+    })
+}
+
+function showCountyTable() {
+  // Create a button grid for region selection
+  var grid = ui.Panel({layout: ui.Panel.Layout.flow('vertical')})
+  
+  // Add a button for each region
+  suitableNames.forEach(function(name) {
+    var button = ui.Button({
+      label: name,
+      onClick: function() {
+        currentCountyName = name
+        rebuildMainPanel()
+      }
+    })
+    grid.add(button)
+  })
+  
+  controlPanel.add(grid)
+}
+```
+
+#### 3.3.2 Legends Control
+
+Provides detailed layer controls to show/hide area boundaries, suitable areas, and existing vineyards.
+
+``` javascript
+  var legendPanel = ui.Panel({
+    layout: ui.Panel.Layout.flow('vertical'),
+    style: {
+      padding: '8px',
+      margin: '0 0 8px 0',
+      backgroundColor: 'white'
+    }
+  });
+
+  checkboxRegion = ui.Checkbox({
+    label: '', 
+    value: true, 
+    onChange: function() {
+      showLoading("Updating map...");
+      ee.Number(1).evaluate(function() {
+        updateRegion();
+        hideLoading();
+      });
+    }
+  });
+  var regionRow = ui.Panel([checkboxRegion, createLegendRow('orange', 'Region Boundary')], 
+    ui.Panel.Layout.flow('horizontal'));
+  legendPanel.add(regionRow);
+
+  checkboxSuitability = ui.Checkbox({
+    label: '', 
+    value: true, 
+    onChange: function() {
+      showLoading("Updating map...");
+      ee.Number(1).evaluate(function() {
+        updateRegion();
+        hideLoading();
+      });
+    }
+  });
+  var suitabilityRow = ui.Panel([checkboxSuitability, createLegendRow('#00FF00', 'Suitable Planting Areas')],
+    ui.Panel.Layout.flow('horizontal'));
+  legendPanel.add(suitabilityRow);
+
+  checkboxVineyards = ui.Checkbox({
+    label: '', 
+    value: true, 
+    onChange: function() {
+      showLoading("Updating map...");
+      ee.Number(1).evaluate(function() {
+        updateRegion();
+        hideLoading();
+      });
+    }
+  });
+  var vineyardsRow = ui.Panel([checkboxVineyards, createLegendRow('purple', 'Existing Vineyards (2023)')],
+    ui.Panel.Layout.flow('horizontal'));
+  legendPanel.add(vineyardsRow);
+
+```
+
+#### 3.3.2 Single-year and Multi-year analysis
+
+Allows switching between single-year and multi-year analysis modes, resulting in a visualisation of suitable areas on a map. The multi-year analysis filters out areas on the map that are suitable for all years.
+
+``` javascript
+var singleYearButton = ui.Button({
+  label: 'Single Year View',
+  onClick: function() {
+    modeSelect = 'Single Year';
+    updateViewMode();
+  }
+});
+
+var multiYearButton = ui.Button({
+  label: 'Multi-Year Analysis',
+  onClick: function() {
+    modeSelect = 'Multi-Year';
+    updateViewMode();
+  }
+});
+
+
+```
+
+### 3.4 Function 2 : Regional Comparison Analysis
+
+#### 3.4.1 Custom Drawing of Arbitrary Areas
+
+Supports users to freely draw any area (e.g. rectangle, polygon) on the map, save and manage multiple custom-drawn areas.
+
+``` javascript
+// Configure drawing tools
+  var drawingTools = mapPanel.drawingTools();
+  drawingTools.setLinked(false);
+  drawingTools.setDrawModes(['rectangle', 'polygon']);
+  drawingTools.setShown(false);
+  
+  // Add button to start drawing
+  var startDrawingButton = ui.Button('Start Drawing Region', function() {
+    drawingTools.layers().reset();
+    drawingTools.setShown(true);
+    drawingTools.setDrawModes(['polygon']);
+    drawingTools.setShape('polygon');
+    drawingTools.draw();
+    
+    showLoading("Please draw a region on the map");
+    ee.Number(1).evaluate(function() {
+      hideLoading();
+    });
+  });
+  
+  var saveButton = ui.Button('Save Region', function() {
+    var drawn = drawingTools.layers().get(0);
+    if (!drawn) {
+      showLoading("Please draw a region first");
+      ee.Number(1).evaluate(function() {
+        hideLoading();
+      });
+      return;
+    }
+    var geom = drawn.toGeometry();
+    var regionIndex = savedCompareGeometries.length + 1;
+    savedCompareGeometries.push(geom);
+    mapPanel.addLayer(geom, {color: 'blue'}, 'Comparison Region ' + regionIndex);
+    drawingTools.layers().reset();
+    drawingTools.setShown(false);
+    
+    showLoading("Region saved, please click 'Analyze Selected Region' button to analyze");
+    ee.Number(1).evaluate(function() {
+      hideLoading();
+    });
+  });
+  
+  var analyzeButton = ui.Button('Analyze Selected Region', function() {
+    if (savedCompareGeometries.length === 0) {
+      showLoading("Please draw and save a region first");
+      ee.Number(1).evaluate(function() {
+        hideLoading();
+      });
+```
+
+
+#### 3.4.2 Trends in Suitability and Statistical Analyses
+
+For each mapped area, a trend map of the area of suitability for each area was generated as well as providing the area of suitable planting and the area of highly suitable areas (\>70%) in 2023.
+
+``` javascript
+// Get most recently saved region
+    var regionIndex = savedCompareGeometries.length;
+    var region = savedCompareGeometries[regionIndex - 1];
+    
+    showLoading("Analyzing region " + regionIndex + "...");
+    
+    // Analyze suitability change of the region (2020-2023)
+    var years = [2020, 2021, 2022, 2023];
+    var yearResults = {};
+    var totalYears = years.length;
+    var processedYears = 0;
+    
+    // Analyze basic suitability for each year
+    years.forEach(function(year) {
+      // Use simple filtering conditions to calculate suitability area
+      var suitableMask = computeBasicSuitability(region, String(year));
+      
+      // Calculate suitable area size
+      suitableMask.multiply(ee.Image.pixelArea()).reduceRegion({
+        reducer: ee.Reducer.sum(),
+        geometry: region,
+        scale: 250,
+        maxPixels: 1e10
+      }).evaluate(function(result) {
+        var area = result ? result.mask / 1e6 : 0;
+        
+        yearResults[year] = {
+          suitable_area: area
+        };
+```
+
+#### 3.4.3 Support for Comparative Analyses in Two Regions
+
+Supports detailed comparisons between two areas, outputs area comparison tables and text summaries (who is more suitable, who has more highly suitable area, etc.).
+
+``` javascript
+ // Get results of the last two regions
+      var region1Results = areaResults['region' + (savedCompareGeometries.length - 1)];
+      var region2Results = areaResults['region' + savedCompareGeometries.length];
+      
+      if (!region1Results || !region2Results) {
+        hideLoading();
+        showLoading("Unable to retrieve region data, please re-analyze");
+        ee.Number(1).evaluate(function() {
+          hideLoading();
+        });
+        return;
+      }
+      
+      // Create comparison panel
+      var comparisonPanel = ui.Panel({
+        layout: ui.Panel.Layout.flow('vertical'),
+        style: {width: '100%', padding: '8px', border: '1px solid #ddd'}
+      });
+      
+      comparisonPanel.add(ui.Label('Region Comparison (2023)', {
+        fontWeight: 'bold',
+        textAlign: 'center',
+        margin: '0 0 8px 0'
+      }));
+      
+      // Create comparison table
+      var table = ui.Panel({
+        layout: ui.Panel.Layout.flow('vertical'),
+        style: {width: '100%'}
+      });
+```
+
+``` javascript
+// Add conclusion panel
+      var conclusionPanel = ui.Panel({
+        layout: ui.Panel.Layout.flow('vertical'),
+        style: {width: '100%', margin: '8px 0 0 0', padding: '8px', backgroundColor: '#f9f9f9'}
+      });
+      
+      var conclusion = '';
+      if (region1Results[2023].suitable_area > region2Results[2023].suitable_area) {
+        conclusion = 'Region ' + (savedCompareGeometries.length - 1) + ' has a larger suitable planting area.\n';
+      } else {
+        conclusion = 'Region ' + savedCompareGeometries.length + ' has a larger suitable planting area.\n';
+      }
+      
+      var highSuitConclusion = '';
+      if (region1Results[2023].high_suitable_area > region2Results[2023].high_suitable_area) {
+        highSuitConclusion = 'Region ' + (savedCompareGeometries.length - 1) + ' has a larger high suitability area,';
+        highSuitConclusion += ' ' + Math.abs(highSuitableDiff).toFixed(2) + 'km² more than region ' + savedCompareGeometries.length;
+      } else {
+        highSuitConclusion = 'Region ' + savedCompareGeometries.length + ' has a larger high suitability area,';
+        highSuitConclusion += ' ' + Math.abs(highSuitableDiff).toFixed(2) + 'km² more than region ' + (savedCompareGeometries.length - 1);
+      }
+      
+      conclusionPanel.add(ui.Label('Conclusion:', {fontWeight: 'bold'}));
+      conclusionPanel.add(ui.Label(conclusion));
+      conclusionPanel.add(ui.Label(highSuitConclusion, {color: '#D81B60', fontWeight: 'bold'}));
+      
+      comparisonPanel.add(conclusionPanel);
+```
 
 ## 4. Interaction Design
 
