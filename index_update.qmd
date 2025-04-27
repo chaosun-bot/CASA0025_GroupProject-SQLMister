@@ -60,8 +60,8 @@ Five environmental variables were selected based on literature thresholds:\
 GST 14.1–15.5°C (Nesbitt et al., 2022),\
 GDD 974–1223°C·days (Nesbitt et al., 2022),\
 GSP 273–540mm (Nesbitt et al., 2022),\
-Slope 5–10% (Fraga et al., 2018),\
-Elevation 0–220m (Gladstones, 1992).\
+Slope 5–10% (Nesbitt, Dorling and Lovett, 2018),\
+Elevation 0–220m (Unwin, 1991).\
 Landsat 8 imagery was clipped to the UK boundary and masks were generated with moderate threshold adjustments.
 
 （new版本）
