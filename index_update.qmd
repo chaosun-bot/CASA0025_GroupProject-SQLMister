@@ -67,6 +67,7 @@ Replace the link below with the link to your application.
 var countries = ee.FeatureCollection("USDOS/LSIB_SIMPLE/2017");
 var UK_boundary = countries.filter(ee.Filter.eq("country_na", "United Kingdom"));
 Map.centerObject(UK_boundary, 6);
+```
 
 This project focuses on the United Kingdom.
 Five environmental variables were selected based on literature thresholds:\
