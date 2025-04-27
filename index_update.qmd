@@ -7,15 +7,21 @@ bibliography: references.bib
 
 # Mapping Vineyard Suitability in the UK Using Remote Sensing and Machine Learning
 
-# 1. Project Summary
+## 1. Project Summary
 
 Fill in the sections below to provide a brief summary of your project. Each section should have no more than 100 words. Do not edit any of the headings.
 
-# 2 Problem Statement
+### 1.2 Introduction
+
+#### 1.2.1 Background
+
+#### 1.2.2 Literature review
+
+### 1.3 Problem Statement
 
 Our project addresses the challenge of identifying optimal regions for grape vineyard cultivation in the UK by integrating multiple environmental and climatic factors. Traditional approaches often rely on expert intuition or static maps, lacking dynamic data-driven analysis. Recent studies show that from 1981–2018, growing season temperatures in major UK viticulture regions have risen by approximately 1°C, now exceeding 14°C GST, accelerating vineyard expansion and variety diversification [@nesbitt2022climate]. With climate change increasingly affecting viticulture conditions[@fraga2013future], it is essential to develop an interactive tool that combines historical data, remote sensing, and machine learning. Our application allows users to dynamically assess vineyard suitability at various spatial scales and across time, providing a more adaptive and evidence-based decision-making framework for land use planning and agricultural investment.
 
-# 3 End User
+### 1.4 End User
 
 The application is designed for vineyard developers. It enables users to explore vineyard suitability across the UK, making predictions based on environmental factors such as temperature, elevation, and slope. By offering spatial and temporal insights, the tool helps optimize land selection, support climate adaptation, and reduce investment risks. Its intuitive interface ensures accessibility even for users without technical GIS expertise. Additionally, by interviewing investors interested in establishing vineyards in the UK, we collected key insights into ideal growing conditions. Investors prioritize stable climates and seek regions suitable for cultivating high-quality grape varieties, further informing the application’s focus and design.
 
@@ -25,7 +31,7 @@ The application is designed for vineyard developers. It enables users to explore
 
 </div>
 
-# 4 Data
+### 1.5 Data
 
 Temperature: MODIS/006/MOD11A2 — MODIS Land Surface Temperature and Emissivity
 
@@ -53,15 +59,15 @@ Land Use: Land Cover Map 10m — UK Centre for Ecology & Hydrology
 
 -   **Elevation** filters areas too high or low for optimal grape production.
 
-# 5 Methodology
+### 1.6 Methodology
 
 We preprocess environmental datasets by applying thresholds for suitable viticultural conditions, including temperature, precipitation, elevation, solar radiation, and vegetation cover. After stacking key features, stratified sampling generates positive (vineyard) and negative (unsuitable) training data for a Random Forest classifier. The model predicts continuous suitability scores, categorizing regions into unsuitable, suitable, and highly suitable (\>70%) areas, with high accuracy validated by cross-validation. Predictions support county-level selections, user-drawn custom polygons, and regional comparisons between two areas. Time-series analyses from 2010 to 2023 allow users to explore spatial and temporal shifts in vineyard suitability under changing environmental conditions.
 
-# 6 Interface
+### 1.7 Interface
 
 The application features a modular, panel-based interface designed for clarity, interactivity, and user-friendliness. Module 1 allows users to select any UK county to view historical trends in vineyard suitability. Module 2 enables users to draw custom areas directly on the map and run machine learning-based suitability predictions for those regions. Module 3 supports side-by-side comparison between two user-defined regions to facilitate comparative spatial analysis. Results are displayed through interactive maps, dynamically updating area charts, and easy-to-read statistics. The entire interface is built using Earth Engine’s UI tools to ensure smooth interaction even with large datasets.
 
-# 7 The Application
+## 2 The Application
 
 Replace the link below with the link to your application.
 
@@ -71,9 +77,9 @@ Replace the link below with the link to your application.
 </iframe>
 :::
 
-# 8. How it Works
+## 3. How it Works
 
-## 8.1 Data Preprocessing
+### 3.1 Data Preprocessing
 
 ``` javascript
 var countries = ee.FeatureCollection("USDOS/LSIB_SIMPLE/2017");
@@ -114,7 +120,7 @@ var elevationMask = elevation.gte(5).and(elevation.lte(250));
 Land cover was reclassified to retain grassland, shrubland, and cropland.\
 All masks were combined using logical AND operations to select suitable areas.
 
-## 8.2 Machine Learning Modeling
+### 3.2 Machine Learning Modeling
 
 Environmental factors (GST, GDD, GSP, slope, elevation, aspect, latitude) are extracted for a selected region and year from TerraClimate and SRTM datasets.
 
@@ -148,26 +154,26 @@ var suitabilityScore = featureImage.classify(probabilityClassifier);
 ```
 
 Fallback to the basic mask is used if sampling fails.
-## 8.3 User Interface Design
+### 3.3 Function 1 :
 
-The user interface is structured around three modules for intuitive exploration:
+#### 3.3.1 xxxxx
+xxxxx
 
--   **Module 1**: Users select any county to view vineyard suitability trends from 2010 to 2023, with time-series charts automatically generated.
--   **Module 2**: Users draw custom regions; the system runs full machine learning analysis, returning suitability maps and area statistics.
--   **Module 3**: Users can save two drawn regions and compare their vineyard suitability side-by-side through synchronized charts.
+#### 3.3.2 xxxxx
+xxxxx
 
-To assist users in Module 3, the application automatically loads the national vineyard suitability mask after module switching:
+### 3.4 Function 2 :
 
-``` javascript
-var fullUKMask = computeMask(UK_boundary.geometry(), '2023');
-mapPanel.addLayer(fullUKMask.selfMask(), {palette: ['#00FF00'], opacity: 0.7}, 'UK Vineyard Suitability');
-```
+#### 3.4.1 xxxxx
+xxxxx
 
-This ensures users quickly focus on viable areas and avoid drawing in unsuitable regions.\
-Real-time chart updates, dynamic map layer control, and modular panels provide a smooth and scalable user experience for both technical and non-technical audiences.
+#### 3.4.2 xxxxx
+xxxxx
 
-You can include images:
+## 4. Interaction Design
 
-![Pixelwise T-Test, 2018](images/beirut_change_2020.jpg)
+## 5.Limitations
 
-and math: $$ \Large t = {\frac{\overline{x_1}-\overline{x_2}} {\sqrt{\frac{s^2_1}{n_1} + \frac{s^2_2}{n_2}}}} $$
+## 6.Future work
+
+## 7.References
