@@ -1,11 +1,11 @@
 ---
-title: "CASA0025 Final Project: Mapping Vineyard Suitability in the UK Using Remote Sensing and Machine Learning"
+title: "CASA00025 Group Project"
 format: html
 author: SQLMister group
 bibliography: references.bib
 ---
 
-# Mapping Vineyard Suitability in the UK Using Remote Sensing and Machine Learning
+# Grape Cultivation Analysis Toolkit
 
 ## 1. Project Summary
 
