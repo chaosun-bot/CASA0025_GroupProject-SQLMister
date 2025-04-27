@@ -14,7 +14,7 @@ Fill in the sections below to provide a brief summary of your project. Each sect
 
 ## 1.1 Problem Statement
 
-Our project addresses the challenge of identifying optimal regions for grape vineyard cultivation in the UK by integrating multiple environmental and climatic factors. Traditional approaches often rely on expert intuition or static maps, lacking dynamic data-driven analysis. Recent studies show that from 1981–2018, growing season temperatures in major UK viticulture regions have risen by approximately 1°C, now exceeding 14°C GST, accelerating vineyard expansion and variety diversification [@nesbitt2022climate]. With climate change increasingly affecting viticulture conditions, it is essential to develop an interactive tool that combines historical data, remote sensing, and machine learning. Our application allows users to dynamically assess vineyard suitability at various spatial scales and across time, providing a more adaptive and evidence-based decision-making framework for land use planning and agricultural investment.
+Our project addresses the challenge of identifying optimal regions for grape vineyard cultivation in the UK by integrating multiple environmental and climatic factors. Traditional approaches often rely on expert intuition or static maps, lacking dynamic data-driven analysis. Recent studies show that from 1981–2018, growing season temperatures in major UK viticulture regions have risen by approximately 1°C, now exceeding 14°C GST, accelerating vineyard expansion and variety diversification [@nesbitt2022climate]. With climate change increasingly affecting viticulture conditions[@fraga2013future], it is essential to develop an interactive tool that combines historical data, remote sensing, and machine learning. Our application allows users to dynamically assess vineyard suitability at various spatial scales and across time, providing a more adaptive and evidence-based decision-making framework for land use planning and agricultural investment.
 
 ## 1.2 End User
 
@@ -60,9 +60,9 @@ var l8 = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
 This project focuses on the United Kingdom from 2010 to 2023.\
 Five environmental variables were selected based on literature thresholds:\
 GST 14.1–15.5°C [@nesbitt2022climate],\
-GDD 974–1223°C·days [@nesbitt2022climate],\
-GSP 273–540mm [@nesbitt2022climate]),\
-Slope 5–10% [@nesbitt2022climate;@nesbitt2018suitability],\
+GDD 974–1223°C·days [@nesbitt2022climate;@bai2022viticultural],\
+GSP 273–540mm [@nesbitt2022climate;@bai2022viticultural]),\
+Slope 5–10% [@nesbitt2022climate;@nesbitt2018suitability;@bai2022viticultural],\
 Elevation 0–220m [@unwin1991uk].\
 Landsat 8 imagery was clipped to the UK boundary and masks were generated with moderate threshold adjustments.
 
