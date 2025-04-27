@@ -14,11 +14,11 @@ This project develops an interactive web application using Google Earth Engine (
 
 #### 1.2.1 Background
 
-Recent studies have shown that between 1981 and 2018, growing season temperatures in key UK viticulture regions increased by approximately 1°C, with GST values now exceeding 14°C, facilitating the expansion of vineyards and the diversification of grape varieties [@nesbitt2022climate]. Climate change is projected to further alter temperature, precipitation, and seasonal patterns, impacting the spatial distribution, productivity, and sustainability of viticulture [@fraga2013future]. These environmental shifts highlight the urgent need for dynamic, data-driven tools that integrate climatic and topographic variables to support vineyard planning and agricultural decision-making under future climate scenarios.
+Recent studies have shown that between 1981 and 2018, growing season temperatures in key UK viticulture regions increased by approximately 1°C, with GST values now exceeding 14°C, facilitating the expansion of vineyards and the diversification of grape varieties (Nesbitt et al., 2022). Climate change is projected to further alter temperature, precipitation, and seasonal patterns, impacting the spatial distribution, productivity, and sustainability of viticulture (Fraga et al., 2013). These environmental shifts highlight the urgent need for dynamic, data-driven tools that integrate climatic and topographic variables to support vineyard planning and agricultural decision-making under future climate scenarios.
 
 #### 1.2.2 Literature review
 
-Climate change has significantly impacted viticultural suitability, creating new opportunities for UK wine production. Recent projections show that warming trends will improve conditions for varieties like Pinot Noir in the UK by 2040 [@nesbitt2022climate]. Suitability models suggest increasing investment potential and climate resilience in England and Wales [@nesbitt2018suitability]. Early discussions on the evolution of UK wine quality laid a foundation for understanding these shifts [@unwin1991uk]. Broader European analyses reveal uncertainties in future viticultural zoning under climate scenarios [@fraga2013future]. Remote sensing studies further highlight the importance of multi-source environmental data in capturing climate-driven suitability changes [@bai2022viticultural]. Building on these insights, our project integrates remote sensing datasets with machine learning techniques to dynamically map and predict vineyard suitability, providing a scalable, data-driven tool for spatial analysis under changing environmental conditions.
+Climate change has significantly impacted viticultural suitability, creating new opportunities for UK wine production. Recent projections show that warming trends will improve conditions for varieties like Pinot Noir in the UK by 2040 (Nesbitt et al., 2022). Suitability models suggest increasing investment potential and climate resilience in England and Wales (Nesbitt et al., 2018). Early discussions on the evolution of UK wine quality laid a foundation for understanding these shifts (Unwin, 1991). Broader European analyses reveal uncertainties in future viticultural zoning under climate scenarios (Fraga et al., 2013). Remote sensing studies further highlight the importance of multi-source environmental data in capturing climate-driven suitability changes (Bai et al., 2022). Building on these insights, our project integrates remote sensing datasets with machine learning techniques to dynamically map and predict vineyard suitability, providing a scalable, data-driven tool for spatial analysis under changing environmental conditions.
 
 ### 1.3 Problem Statement
 
@@ -83,7 +83,7 @@ GST 14.1–15.5°C (Nesbitt et al., 2022),\
 GDD 974–1223°C·days (Nesbitt et al., 2022),\
 GSP 273–540mm (Nesbitt et al., 2022),\
 Slope 5–10% (Fraga et al., 2018),\
-Elevation 0–220m (Gladstones, 1992).\
+Elevation 0–220m (Unwin, 1991).\
 Landsat 8 imagery was clipped to the UK boundary and masks were generated with moderate threshold adjustments.
 
 ``` javascript
@@ -487,12 +487,12 @@ Expanding site selection factors: When selecting sites and comparing sites, more
 Grape Variety Classification: Implement classification of different grape varieties to enable more targeted vineyard area analysis and selection.
 
 ## 7.References
-Bai, H. et al. (2022) Viticultural Suitability Analysis Based on Multi-Source Data Highlights Climate-Change-Induced Decrease in Potential Suitable Areas: A Case Analysis in Ningxia, China. *Remote sensing (Basel, Switzerland)*. 14 (15), 3717-.
+Bai, Huiqing; Sun, Zhongxiang; Yao, Xuenan; Kong, Junhua; Wang, Yongjian; Zhang, Xiaoyu; Chen, Weiping; Fan, Peige; Li, Shaohua; Liang, Zhenchang. (2022) Viticultural Suitability Analysis Based on Multi-Source Data Highlights Climate-Change-Induced Decrease in Potential Suitable Areas: A Case Analysis in Ningxia, China. *Remote sensing (Basel, Switzerland)*. 14 (15), 3717-.
 
-Fraga, H. et al. (2013) Future scenarios for viticultural zoning in Europe: ensemble projections and uncertainties. *International journal of biometeorology*. 57 (6), 909–925.
+Fraga, H; Malheiro, A C; Moutinho-pereira, J; Santos, J A. (2013) Future scenarios for viticultural zoning in Europe: ensemble projections and uncertainties. *International journal of biometeorology*. 57 (6), 909–925.
 
-Nesbitt, A. et al. (2022) Climate change projections for UK viticulture to 2040: a focus on improving suitability for Pinot noir. *OENO one*. 56 (3), 69–87.
+Nesbitt, Alistair, Dorling, Stephen, Jones, Richard, Smith, Dan K. E., Krumins, Marcus, Gannon, Kate E., Dorling, Lewis, Johnson, Zoë and Conway, Declan (2022) Climate change projections for UK viticulture to 2040: A focus on improving suitability for Pinot Noir. *OENO On*, 56 (3). 69–87.
 
-Nesbitt, A. et al. (2018) A suitability model for viticulture in England and Wales: opportunities for investment, sector growth and increased climate resilience. *Journal of land use science*. 13 (4), 414–438.
+Nesbitt, A., Dorling, S. and Lovett, A. (2018) ‘A suitability model for viticulture in England and Wales: opportunities for investment, sector growth and increased climate resilience’, *Journal of Land Use Science*, 13(4), pp. 414–438.
 
 Unwin, T. (1991) UK wine: from table wines to quality wine? *Journal of wine research*. 2 (2), 143–150.
