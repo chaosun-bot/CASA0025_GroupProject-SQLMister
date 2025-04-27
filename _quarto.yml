@@ -3,22 +3,17 @@ project:
   output-dir: docs
 
 book:
-  title: "CASA00025 Group Project"
-  author: "SQLMister group"
-  date: "27/04/2025"
+  title: "CASA0025 Final Assessment"
+  author: "Group Name"
+  date: "01/01/2024"
   chapters:
     - index.qmd
-    
-Grape Cultivation Analysis Toolkit
-
-  repo-actions: [edit]
+  repo-actions: [edit]  # 确保缩进对齐
   downloads: [pdf, epub]
   sharing: [twitter, facebook]
   favicon: favicon.ico
   sidebar:
     logo: casa_logo.png
-
-
 
 format:
   html:
