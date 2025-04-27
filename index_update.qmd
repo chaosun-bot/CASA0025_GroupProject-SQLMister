@@ -20,13 +20,26 @@ Our project addresses the challenge of identifying optimal regions for grape vin
 
 The application is designed for vineyard developers. It enables users to explore vineyard suitability across the UK, making predictions based on environmental factors such as temperature, elevation, and slope. By offering spatial and temporal insights, the tool helps optimize land selection, support climate adaptation, and reduce investment risks. Its intuitive interface ensures accessibility even for users without technical GIS expertise. Additionally, by interviewing investors interested in establishing vineyards in the UK, we collected key insights into ideal growing conditions. Investors prioritize stable climates and seek regions suitable for cultivating high-quality grape varieties, further informing the application’s focus and design.
 
-待插入图片
+<div>
+
+![Records of communication with users](images/end_user.png){fig-align="center" width="40%"}
+
+</div>
 
 ## 1.3 Data
 
-We reviewed relevant literature to define optimal environmental ranges for grape cultivation, focusing on elevation, temperature, slope, growing season conditions, and precipitation. Based on these findings, we set parameter thresholds with acceptable deviations.
-
 DEM: JAXA/ALOS/AW3D30/V2_2 — ALOS DSM: Global 30m v3.2 Temperature: MODIS/006/MOD11A2 — MODIS Land Surface Temperature and Emissivity Slope: USGS/SRTMGL1_003 — NASA SRTM Digital Elevation 30m GST : TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE GDD : TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE GSP : TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE Existing Vineyard: Exported from OpenStreetMap (OSM) Land Use: Land Cover Map 10m — UK Centre for Ecology & Hydrology
+
+-   **GST** ensures warm enough growing season temperatures.
+
+-   **GDD** captures accumulated heat units necessary for ripening.
+
+-   **GSP** screens for sufficient but not excessive rainfall.
+
+-   **Slope** helps in drainage and solar exposure.
+
+-   **Elevation** filters areas too high or low for optimal grape production.
+
 
 ## 1.4 Methodology
 
@@ -50,27 +63,21 @@ Replace the link below with the link to your application.
 
 ### 2.1 Data Preprocessing
 
-``` javascript等待修改
-var l8 = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
-  .filterBounds(UK_boundary)
-  .filterDate('2024-01-01', '2024-12-31')
-  .map(addIndices);
-```
+## 时间段和英国边界设置
 
-This project focuses on the United Kingdom from 2010 to 2023.\
+```javascript
+var countries = ee.FeatureCollection("USDOS/LSIB_SIMPLE/2017");
+var UK_boundary = countries.filter(ee.Filter.eq("country_na", "United Kingdom"));
+Map.centerObject(UK_boundary, 6);
+
+This project focuses on the United Kingdom.
 Five environmental variables were selected based on literature thresholds:\
-GST 14.1–15.5°C [@nesbitt2022climate],\
-GDD 974–1223°C·days [@nesbitt2022climate;@bai2022viticultural],\
-GSP 273–540mm [@nesbitt2022climate;@bai2022viticultural]),\
-Slope 5–10% [@nesbitt2022climate;@nesbitt2018suitability;@bai2022viticultural],\
-Elevation 0–220m [@unwin1991uk].\
+GST 14.1–15.5°C (Nesbitt et al., 2022),\
+GDD 974–1223°C·days (Nesbitt et al., 2022),\
+GSP 273–540mm (Nesbitt et al., 2022),\
+Slope 5–10% (Fraga et al., 2018),\
+Elevation 0–220m (Gladstones, 1992).\
 Landsat 8 imagery was clipped to the UK boundary and masks were generated with moderate threshold adjustments.
-
-（new版本）
-
-All images are clipped to the UK boundary to optimize computation and ensure geographical focus.
-
-We generate binary masks based on viticulture threshold standards. Each environmental variable is filtered separately:
 
 ``` javascript
 var gstMask = gst.gte(14.0).and(gst.lte(16.0));
@@ -80,25 +87,22 @@ var slopeMask = slope.gte(2).and(slope.lte(15));
 var elevationMask = elevation.gte(5).and(elevation.lte(250));
 ```
 
+::: {layout-ncol="3"}
+![GSD Map](images/gsd.png)
+
+![Slope Map](images/slope.png)
+
+![Elevation Map](images/elevation.png)
+
+![GDD Map](images/gdd.png)
+
+![GSP Map](images/gsp.png)
+
+![Land Use Map](images/landuse.png)
+:::
+
 Land cover was reclassified to retain grassland, shrubland, and cropland.\
 All masks were combined using logical AND operations to select suitable areas.
-
-（new版本）
-
--   **GST** ensures warm enough growing season temperatures.
-
--   **GDD** captures accumulated heat units necessary for ripening.
-
--   **GSP** screens for sufficient but not excessive rainfall.
-
--   **Slope** helps in drainage and solar exposure.
-
--   **Elevation** filters areas too high or low for optimal grape production.
-
-    (对变量的描述考虑放在Data的部分？)
-
-Suitable land covers (grassland, shrubland, cropland) are retained by remapping land cover types.\
-Finally, all masks are combined using logical AND operations to produce a final suitability mask, marking areas passing all critical conditions.
 
 ### 2.3 Machine Learning Modeling
 
