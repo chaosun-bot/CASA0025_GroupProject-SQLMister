@@ -175,7 +175,15 @@ xxxxx
 xxxxx
 
 ## 4. Interaction Design
+Our UI design adheres to five key principles:
 
+Usability: The interface adopts an intuitive layout, with the main functional panel fixed on the right and a legend positioned on the bottom left, ensuring that users can easily navigate and efficiently operate the system.
+
+Aesthetics: Clear modular separation between grape suitability analysis and regional comparison analysis, combined with a consistent visual hierarchy, enhances overall readability and user comfort. Time-series trends are presented through interactive charts alongside color-coded maps, improving complex data visualization.
+
+Consistency: Uniform styles are maintained across modules in layer colors, button designs, and interaction workflows, ensuring a coherent user experience. Legends use consistent color schemes to aid map interpretation.
+
+Flexibility: The system supports both predefined county selections and user-drawn custom areas, catering to varied spatial analysis needs. Users can flexibly switch between single-year and multi-year views to explore different temporal patterns.
 ## 5.Limitations
 
 ## 6.Future work
