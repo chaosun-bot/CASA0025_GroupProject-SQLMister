@@ -1,6 +1,8 @@
 ---
 title: "CASA00025 Group Project"
-format: html
+format:
+  html:
+    theme: cosmo
 author: SQLMister group
 ---
 
@@ -466,11 +468,20 @@ Supports detailed comparisons between two areas, outputs area comparison tables 
 
 ## 4. Interaction Design
 
-Feedback: The interface shows loading prompts like "Analyzing region…" to keep users informed of progress.
-Usability: The intuitive layout, with a fixed right panel and bottom-left legend, ensures easy navigation. Custom area selection includes clear instructions for quick user onboarding.
-Aesthetics: Functions are clearly separated, and high-contrast map layers, interactive charts, and color-coded maps improve data visualization.
-Consistency: Consistent styles across layers, buttons, and interactions, with uniform color schemes in the legend, aid map interpretation.
-Flexibility: Supports predefined county selections and user-drawn areas, with flexible switching between single-year and multi-year views for analysis.
+Feedback: 
+The interface shows loading prompts like "Analyzing region…" to keep users informed of progress.
+
+Usability: 
+The intuitive layout, with a fixed right panel and bottom-left legend, ensures easy navigation. Custom area selection includes clear instructions for quick user onboarding.
+
+Aesthetics: 
+Functions are clearly separated, and high-contrast map layers, interactive charts, and color-coded maps improve data visualization.
+
+Consistency: 
+Consistent styles across layers, buttons, and interactions, with uniform color schemes in the legend, aid map interpretation.
+
+Flexibility: 
+Supports predefined county selections and user-drawn areas, with flexible switching between single-year and multi-year views for analysis.
 
 ## 5.Limitations
 
