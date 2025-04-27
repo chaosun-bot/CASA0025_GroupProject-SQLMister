@@ -56,7 +56,7 @@ Environmental datasets are first preprocessed by applying thresholds for tempera
 
 ### 1.7 Interface
 
-The application features a modular, panel-based interface designed for clarity, interactivity, and user-friendliness. Module 1 allows users to select any UK county to view historical trends in vineyard suitability. Module 2 enables users to draw custom areas directly on the map and run machine learning-based suitability predictions for those regions. Module 3 supports side-by-side comparison between two user-defined regions to facilitate comparative spatial analysis. Results are displayed through interactive maps, dynamically updating area charts, and easy-to-read statistics. The entire interface is built using Earth Engine’s UI tools to ensure smooth interaction even with large datasets.
+The application features a modular, panel-based interface designed for clarity, interactivity, and user-friendliness. Module 1 allows users to select any UK county to view historical trends in vineyard suitability. Module 2 enables users to draw custom polygons on a map and generate suitability prediction results. Additionally, this module supports side-by-side comparisons of two different areas, helping users understand spatial variability. Results are displayed through interactive maps, dynamically updating area charts, and easy-to-read statistics. The entire interface is built using Earth Engine’s UI tools to ensure smooth interaction even with large datasets.
 
 ## 2 The Application
 
