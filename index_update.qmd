@@ -3,7 +3,6 @@ title: "CASA0025 Final Project: Mapping Vineyard Suitability in the UK Using Rem
 format: html
 editor: visual
 bibliography: references.bib
-
 ---
 
 # Mapping Vineyard Suitability in the UK Using Remote Sensing and Machine Learning
@@ -12,11 +11,11 @@ bibliography: references.bib
 
 Fill in the sections below to provide a brief summary of your project. Each section should have no more than 100 words. Do not edit any of the headings.
 
-## 1.1 Problem Statement
+# 2 Problem Statement
 
 Our project addresses the challenge of identifying optimal regions for grape vineyard cultivation in the UK by integrating multiple environmental and climatic factors. Traditional approaches often rely on expert intuition or static maps, lacking dynamic data-driven analysis. Recent studies show that from 1981–2018, growing season temperatures in major UK viticulture regions have risen by approximately 1°C, now exceeding 14°C GST, accelerating vineyard expansion and variety diversification [@nesbitt2022climate]. With climate change increasingly affecting viticulture conditions[@fraga2013future], it is essential to develop an interactive tool that combines historical data, remote sensing, and machine learning. Our application allows users to dynamically assess vineyard suitability at various spatial scales and across time, providing a more adaptive and evidence-based decision-making framework for land use planning and agricultural investment.
 
-## 1.2 End User
+# 3 End User
 
 The application is designed for vineyard developers. It enables users to explore vineyard suitability across the UK, making predictions based on environmental factors such as temperature, elevation, and slope. By offering spatial and temporal insights, the tool helps optimize land selection, support climate adaptation, and reduce investment risks. Its intuitive interface ensures accessibility even for users without technical GIS expertise. Additionally, by interviewing investors interested in establishing vineyards in the UK, we collected key insights into ideal growing conditions. Investors prioritize stable climates and seek regions suitable for cultivating high-quality grape varieties, further informing the application’s focus and design.
 
@@ -26,24 +25,23 @@ The application is designed for vineyard developers. It enables users to explore
 
 </div>
 
-## 1.3 Data
+# 4 Data
 
-Temperature: MODIS/006/MOD11A2 — MODIS Land Surface Temperature and Emissivity 
+Temperature: MODIS/006/MOD11A2 — MODIS Land Surface Temperature and Emissivity
 
-GST : TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE 
+GST : TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE
 
-GDD : TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE 
+GDD : TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE
 
 GSP : TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE
 
-Slope: USGS/SRTMGL1_003 — NASA SRTM Digital Elevation 30m 
+Slope: USGS/SRTMGL1_003 — NASA SRTM Digital Elevation 30m
 
-Elevation: JAXA/ALOS/AW3D30/V2_2 — ALOS 
+Elevation: JAXA/ALOS/AW3D30/V2_2 — ALOS
 
-Existing Vineyard: Exported from OpenStreetMap (OSM) 
+Existing Vineyard: Exported from OpenStreetMap (OSM)
 
 Land Use: Land Cover Map 10m — UK Centre for Ecology & Hydrology
-
 
 -   **GST** ensures warm enough growing season temperatures.
 
@@ -55,16 +53,15 @@ Land Use: Land Cover Map 10m — UK Centre for Ecology & Hydrology
 
 -   **Elevation** filters areas too high or low for optimal grape production.
 
-
-## 1.4 Methodology
+# 5 Methodology
 
 We preprocess environmental datasets by applying thresholds for suitable viticultural conditions, including temperature, precipitation, elevation, solar radiation, and vegetation cover. After stacking key features, stratified sampling generates positive (vineyard) and negative (unsuitable) training data for a Random Forest classifier. The model predicts continuous suitability scores, categorizing regions into unsuitable, suitable, and highly suitable (\>70%) areas, with high accuracy validated by cross-validation. Predictions support county-level selections, user-drawn custom polygons, and regional comparisons between two areas. Time-series analyses from 2010 to 2023 allow users to explore spatial and temporal shifts in vineyard suitability under changing environmental conditions.
 
-## 1.5 Interface
+# 6 Interface
 
 The application features a modular, panel-based interface designed for clarity, interactivity, and user-friendliness. Module 1 allows users to select any UK county to view historical trends in vineyard suitability. Module 2 enables users to draw custom areas directly on the map and run machine learning-based suitability predictions for those regions. Module 3 supports side-by-side comparison between two user-defined regions to facilitate comparative spatial analysis. Results are displayed through interactive maps, dynamically updating area charts, and easy-to-read statistics. The entire interface is built using Earth Engine’s UI tools to ensure smooth interaction even with large datasets.
 
-## The Application
+# 7 The Application
 
 Replace the link below with the link to your application.
 
@@ -74,18 +71,17 @@ Replace the link below with the link to your application.
 </iframe>
 :::
 
-## 2. How it Works
+# 8. How it Works
 
-### 2.1 Data Preprocessing
+## 8.1 Data Preprocessing
 
-```javascript
+``` javascript
 var countries = ee.FeatureCollection("USDOS/LSIB_SIMPLE/2017");
 var UK_boundary = countries.filter(ee.Filter.eq("country_na", "United Kingdom"));
 Map.centerObject(UK_boundary, 6);
 ```
 
-This project focuses on the United Kingdom.
-Five environmental variables were selected based on literature thresholds:\
+This project focuses on the United Kingdom. Five environmental variables were selected based on literature thresholds:\
 GST 14.1–15.5°C (Nesbitt et al., 2022),\
 GDD 974–1223°C·days (Nesbitt et al., 2022),\
 GSP 273–540mm (Nesbitt et al., 2022),\
@@ -118,7 +114,7 @@ var elevationMask = elevation.gte(5).and(elevation.lte(250));
 Land cover was reclassified to retain grassland, shrubland, and cropland.\
 All masks were combined using logical AND operations to select suitable areas.
 
-### 2.3 Machine Learning Modeling
+## 8.2 Machine Learning Modeling
 
 We train a Random Forest model to enhance prediction granularity beyond hard thresholds.\
 Positive samples are generated by randomly selecting points within existing vineyard areas, while negative samples are extracted from unsuitable zones outside the environmental mask.
@@ -152,7 +148,7 @@ var suitabilityScore = featureImage.classify(probabilityClassifier);
 Predictions above 70% are categorized as highly suitable regions.\
 Model accuracy is monitored using out-of-bag error rates and confusion matrices.
 
-### 2.4 User Interface Design
+## 8.3 User Interface Design
 
 The user interface is structured around three modules for intuitive exploration:
 
