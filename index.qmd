@@ -37,33 +37,24 @@ The application is designed for vineyard developers. It enables users to explore
 
 ### 1.5 Data
 
-Temperature: MODIS/006/MOD11A2 — MODIS Land Surface Temperature and Emissivity
-
-GST : TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE
-
-GDD : TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE
-
-GSP : TerraClimate dataset — IDAHO_EPSCOR/TERRACLIMATE
-
-Slope: USGS/SRTMGL1_003 — NASA SRTM Digital Elevation 30m
-
-Elevation: JAXA/ALOS/AW3D30/V2_2 — ALOS
-
-Existing Vineyard: Exported from OpenStreetMap (OSM)
-
-Land Use: Land Cover Map 10m — UK Centre for Ecology & Hydrology
-
--   **GST** ensures warm enough growing season temperatures.
-
--   **GDD** captures accumulated heat units necessary for ripening.
-
--   **GSP** screens for sufficient but not excessive rainfall.
-
--   **Slope** helps in drainage and solar exposure.
-
--   **Elevation** filters areas too high or low for optimal grape production.
+Exis
+::: {.cell}
+| Variable                     | Dataset Source                                                    |
+|-------------------------------|--------------------------------------------------------------------|
+| Temperature                  | MODIS/006/MOD11A2 — MODIS Land Surface Temperature and Emissivity  |
+| GST (Growing Season Temperature) | TerraClimate — IDAHO_EPSCOR/TERRACLIMATE                    |
+| GDD (Growing Degree Days)    | TerraClimate — IDAHO_EPSCOR/TERRACLIMATE                    |
+| GSP (Growing Season Precipitation) | TerraClimate — IDAHO_EPSCOR/TERRACLIMATE                    |
+| Slope                        | USGS/SRTMGL1_003 — NASA SRTM Digital Elevation 30m                 |
+| Elevation                    | JAXA/ALOS/AW3D30/V2_2 — ALOS                                       |
+| Existing Vineyard            | Exported from OpenStreetMap (OSM)                                  |
+| Land Use                     | Land Cover Map 10m — UK Centre for Ecology & Hydrology             |
+:::
+: Table 1. Summary of datasets used.
 
 ### 1.6 Methodology
+
+![Methodology Workflow](images/methology.png)
 
 Environmental datasets are first preprocessed by applying thresholds for temperature, precipitation, elevation, solar radiation, and vegetation cover. Key environmental features are then stacked, and stratified sampling is used to generate positive (vineyard) and negative (unsuitable) training data for a Random Forest classifier, effectively distinguishing suitable and unsuitable areas. The model predicts continuous suitability scores, identifying regions with scores above 70% as highly suitable, and achieves high predictive accuracy validated through cross-validation. Predictions support county-level selections, user-defined custom polygons, and regional comparisons. Time-series analyses from 2010 to 2023 allow users to explore spatial and temporal shifts in vineyard suitability under changing environmental conditions.
 
