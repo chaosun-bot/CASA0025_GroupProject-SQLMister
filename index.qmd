@@ -485,11 +485,14 @@ Supports predefined county selections and user-drawn areas, with flexible switch
 
 ## 5.Limitations
 
-Asynchronous Loading: In order to increase the loading speed, the asynchronous loading method is chosen, but this requires a high level of user operation. The user needs to wait for the current operation to finish loading before proceeding to the next operation, otherwise it may lead to the error of loading the result multiple times.
+Asynchronous Loading: 
+In order to increase the loading speed, the asynchronous loading method is chosen, but this requires a high level of user operation. The user needs to wait for the current operation to finish loading before proceeding to the next operation, otherwise it may lead to the error of loading the result multiple times.
 
-Insufficient machine learning training data: The current training sample size is relatively limited, which may lead to a decrease in prediction accuracy.
+Insufficient machine learning training data: 
+The current training sample size is relatively limited, which may lead to a decrease in prediction accuracy.
 
-Lagging vineyard area data: The existing vineyard area data from OSM (Open Street Map) has some lag and incompleteness, which may affect the accuracy of the results.
+Lagging vineyard area data: 
+The existing vineyard area data from OSM (Open Street Map) has some lag and incompleteness, which may affect the accuracy of the results.
 
 
 ## 6.Future work
