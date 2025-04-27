@@ -397,7 +397,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="interface" class="level3">
 <h3 class="anchored" data-anchor-id="interface">1.7 Interface</h3>
-<p>The application features a modular, panel-based interface designed for clarity, interactivity, and user-friendliness. Module 1 allows users to select any UK county to view historical trends in vineyard suitability. Module 2 enables users to draw custom areas directly on the map and run machine learning-based suitability predictions for those regions. Module 3 supports side-by-side comparison between two user-defined regions to facilitate comparative spatial analysis. Results are displayed through interactive maps, dynamically updating area charts, and easy-to-read statistics. The entire interface is built using Earth Engine’s UI tools to ensure smooth interaction even with large datasets.</p>
+<p>The application features a modular, panel-based interface designed for clarity, interactivity, and user-friendliness. Module 1 allows users to select any UK county to view historical trends in vineyard suitability. Module 2 enables users to draw custom polygons on a map and generate suitability prediction results. Additionally, this module supports side-by-side comparisons of two different areas, helping users understand spatial variability. Results are displayed through interactive maps, dynamically updating area charts, and easy-to-read statistics. The entire interface is built using Earth Engine’s UI tools to ensure smooth interaction even with large datasets.</p>
 </section>
 </section>
 <section id="the-application" class="level2 page-columns page-full">
@@ -497,25 +497,335 @@ All masks were combined using logical AND operations to select suitable areas.</
 <div class="sourceCode" id="cb6"><pre class="sourceCode javascript code-with-copy"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">var</span> classifier <span class="op">=</span> ee<span class="op">.</span><span class="at">Classifier</span><span class="op">.</span><span class="fu">smileRandomForest</span>({<span class="dt">numberOfTrees</span><span class="op">:</span> <span class="dv">50</span>})<span class="op">.</span><span class="fu">train</span>({<span class="op">...</span>})<span class="op">;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>The trained classifier predicts a suitability probability surface across the study region. Pixels with scores above 0.7 are identified as highly suitable for vineyard development.</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode javascript code-with-copy"><code class="sourceCode javascript"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">var</span> suitabilityScore <span class="op">=</span> featureImage<span class="op">.</span><span class="fu">classify</span>(probabilityClassifier)<span class="op">;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<p>If sample generation is insufficient, the basic environmental mask serves as a fallback to maintain prediction stability. ### 3.3 Function 1 :</p>
-<section id="xxxxx" class="level4">
-<h4 class="anchored" data-anchor-id="xxxxx">3.3.1 xxxxx</h4>
-<p>xxxxx</p>
+<p>If sample generation is insufficient, the basic environmental mask serves as a fallback to maintain prediction stability.</p>
 </section>
-<section id="xxxxx-1" class="level4">
-<h4 class="anchored" data-anchor-id="xxxxx-1">3.3.2 xxxxx</h4>
-<p>xxxxx</p>
+<section id="function-1-grape-cultivation-suitability-analysis" class="level3">
+<h3 class="anchored" data-anchor-id="function-1-grape-cultivation-suitability-analysis">3.3 Function 1 : Grape Cultivation Suitability Analysis</h3>
+<section id="free-switching" class="level4">
+<h4 class="anchored" data-anchor-id="free-switching">3.3.1 Free Switching</h4>
+<p>It supports users to freely switch between counties to view the 2010-2023 suitability area trend map, and loads all UK (county) suitability data asynchronously in the background to improve the speed of user experience.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode javascript code-with-copy"><code class="sourceCode javascript"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">initializeRegions</span>() {</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Build the initial UI</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rebuildMainPanel</span>()</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Start asynchronous background loading</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">continueLoadingRegions</span>(<span class="dv">0</span><span class="op">,</span> kentIndex)</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Rebuild the main panel to display current region data</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">rebuildMainPanel</span>() {</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Build UI controls</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>  countyInput <span class="op">=</span> ui<span class="op">.</span><span class="fu">Textbox</span>({<span class="dt">value</span><span class="op">:</span> currentCountyName})</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Process current region data</span></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>  currentRegion <span class="op">=</span> <span class="fu">getRegionGeometry</span>(currentCountyName)</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">updateRegion</span>()</span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a><span class="co">// Update region data and trend chart</span></span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">updateRegion</span>() {</span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Create a batch of year data</span></span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>  <span class="kw">var</span> years <span class="op">=</span> [<span class="fl">2010.</span><span class="op">..</span><span class="dv">2023</span>]</span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">processBatch</span>(<span class="dv">0</span>)</span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Batch processing: compute suitable area for each year</span></span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>  <span class="kw">function</span> <span class="fu">processBatch</span>(startIdx) {<span class="op">...</span></span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>    })</span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">showCountyTable</span>() {</span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Create a button grid for region selection</span></span>
+<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a>  <span class="kw">var</span> grid <span class="op">=</span> ui<span class="op">.</span><span class="fu">Panel</span>({<span class="dt">layout</span><span class="op">:</span> ui<span class="op">.</span><span class="at">Panel</span><span class="op">.</span><span class="at">Layout</span><span class="op">.</span><span class="fu">flow</span>(<span class="st">'vertical'</span>)})</span>
+<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Add a button for each region</span></span>
+<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a>  suitableNames<span class="op">.</span><span class="fu">forEach</span>(<span class="kw">function</span>(name) {</span>
+<span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a>    <span class="kw">var</span> button <span class="op">=</span> ui<span class="op">.</span><span class="fu">Button</span>({</span>
+<span id="cb8-39"><a href="#cb8-39" aria-hidden="true" tabindex="-1"></a>      <span class="dt">label</span><span class="op">:</span> name<span class="op">,</span></span>
+<span id="cb8-40"><a href="#cb8-40" aria-hidden="true" tabindex="-1"></a>      <span class="dt">onClick</span><span class="op">:</span> <span class="kw">function</span>() {</span>
+<span id="cb8-41"><a href="#cb8-41" aria-hidden="true" tabindex="-1"></a>        currentCountyName <span class="op">=</span> name</span>
+<span id="cb8-42"><a href="#cb8-42" aria-hidden="true" tabindex="-1"></a>        <span class="fu">rebuildMainPanel</span>()</span>
+<span id="cb8-43"><a href="#cb8-43" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb8-44"><a href="#cb8-44" aria-hidden="true" tabindex="-1"></a>    })</span>
+<span id="cb8-45"><a href="#cb8-45" aria-hidden="true" tabindex="-1"></a>    grid<span class="op">.</span><span class="fu">add</span>(button)</span>
+<span id="cb8-46"><a href="#cb8-46" aria-hidden="true" tabindex="-1"></a>  })</span>
+<span id="cb8-47"><a href="#cb8-47" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-48"><a href="#cb8-48" aria-hidden="true" tabindex="-1"></a>  controlPanel<span class="op">.</span><span class="fu">add</span>(grid)</span>
+<span id="cb8-49"><a href="#cb8-49" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/1.11.png" style="width:70.0%" height="450" class="figure-img"></p>
+<figcaption>Select County</figcaption>
+</figure>
+</div>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/1.1.png" style="width:100.0%" height="600" class="figure-img"></p>
+<figcaption>2010-2023 suitability area trend map</figcaption>
+</figure>
+</div>
+</section>
+<section id="layers-control" class="level4">
+<h4 class="anchored" data-anchor-id="layers-control">3.3.2 Layers Control</h4>
+<p>Provides detailed layer controls to show/hide area boundaries, suitable areas, and existing vineyards.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode javascript code-with-copy"><code class="sourceCode javascript"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>  <span class="kw">var</span> legendPanel <span class="op">=</span> ui<span class="op">.</span><span class="fu">Panel</span>({</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">layout</span><span class="op">:</span> ui<span class="op">.</span><span class="at">Panel</span><span class="op">.</span><span class="at">Layout</span><span class="op">.</span><span class="fu">flow</span>(<span class="st">'vertical'</span>)<span class="op">,</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">style</span><span class="op">:</span> {</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>      <span class="dt">padding</span><span class="op">:</span> <span class="st">'8px'</span><span class="op">,</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">margin</span><span class="op">:</span> <span class="st">'0 0 8px 0'</span><span class="op">,</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">backgroundColor</span><span class="op">:</span> <span class="st">'white'</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>  checkboxRegion <span class="op">=</span> ui<span class="op">.</span><span class="fu">Checkbox</span>({</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">label</span><span class="op">:</span> <span class="st">''</span><span class="op">,</span> </span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">value</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span> </span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">onChange</span><span class="op">:</span> <span class="kw">function</span>() {</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>      <span class="fu">showLoading</span>(<span class="st">"Updating map..."</span>)<span class="op">;</span></span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>      ee<span class="op">.</span><span class="fu">Number</span>(<span class="dv">1</span>)<span class="op">.</span><span class="fu">evaluate</span>(<span class="kw">function</span>() {</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>        <span class="fu">updateRegion</span>()<span class="op">;</span></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>        <span class="fu">hideLoading</span>()<span class="op">;</span></span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>  <span class="kw">var</span> regionRow <span class="op">=</span> ui<span class="op">.</span><span class="fu">Panel</span>([checkboxRegion<span class="op">,</span> <span class="fu">createLegendRow</span>(<span class="st">'orange'</span><span class="op">,</span> <span class="st">'Region Boundary'</span>)]<span class="op">,</span> </span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>    ui<span class="op">.</span><span class="at">Panel</span><span class="op">.</span><span class="at">Layout</span><span class="op">.</span><span class="fu">flow</span>(<span class="st">'horizontal'</span>))<span class="op">;</span></span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>  legendPanel<span class="op">.</span><span class="fu">add</span>(regionRow)<span class="op">;</span></span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>  checkboxSuitability <span class="op">=</span> ui<span class="op">.</span><span class="fu">Checkbox</span>({</span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>    <span class="dt">label</span><span class="op">:</span> <span class="st">''</span><span class="op">,</span> </span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>    <span class="dt">value</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span> </span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>    <span class="dt">onChange</span><span class="op">:</span> <span class="kw">function</span>() {</span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>      <span class="fu">showLoading</span>(<span class="st">"Updating map..."</span>)<span class="op">;</span></span>
+<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a>      ee<span class="op">.</span><span class="fu">Number</span>(<span class="dv">1</span>)<span class="op">.</span><span class="fu">evaluate</span>(<span class="kw">function</span>() {</span>
+<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a>        <span class="fu">updateRegion</span>()<span class="op">;</span></span>
+<span id="cb9-32"><a href="#cb9-32" aria-hidden="true" tabindex="-1"></a>        <span class="fu">hideLoading</span>()<span class="op">;</span></span>
+<span id="cb9-33"><a href="#cb9-33" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span>
+<span id="cb9-34"><a href="#cb9-34" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb9-35"><a href="#cb9-35" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb9-36"><a href="#cb9-36" aria-hidden="true" tabindex="-1"></a>  <span class="kw">var</span> suitabilityRow <span class="op">=</span> ui<span class="op">.</span><span class="fu">Panel</span>([checkboxSuitability<span class="op">,</span> <span class="fu">createLegendRow</span>(<span class="st">'#00FF00'</span><span class="op">,</span> <span class="st">'Suitable Planting Areas'</span>)]<span class="op">,</span></span>
+<span id="cb9-37"><a href="#cb9-37" aria-hidden="true" tabindex="-1"></a>    ui<span class="op">.</span><span class="at">Panel</span><span class="op">.</span><span class="at">Layout</span><span class="op">.</span><span class="fu">flow</span>(<span class="st">'horizontal'</span>))<span class="op">;</span></span>
+<span id="cb9-38"><a href="#cb9-38" aria-hidden="true" tabindex="-1"></a>  legendPanel<span class="op">.</span><span class="fu">add</span>(suitabilityRow)<span class="op">;</span></span>
+<span id="cb9-39"><a href="#cb9-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-40"><a href="#cb9-40" aria-hidden="true" tabindex="-1"></a>  checkboxVineyards <span class="op">=</span> ui<span class="op">.</span><span class="fu">Checkbox</span>({</span>
+<span id="cb9-41"><a href="#cb9-41" aria-hidden="true" tabindex="-1"></a>    <span class="dt">label</span><span class="op">:</span> <span class="st">''</span><span class="op">,</span> </span>
+<span id="cb9-42"><a href="#cb9-42" aria-hidden="true" tabindex="-1"></a>    <span class="dt">value</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span> </span>
+<span id="cb9-43"><a href="#cb9-43" aria-hidden="true" tabindex="-1"></a>    <span class="dt">onChange</span><span class="op">:</span> <span class="kw">function</span>() {</span>
+<span id="cb9-44"><a href="#cb9-44" aria-hidden="true" tabindex="-1"></a>      <span class="fu">showLoading</span>(<span class="st">"Updating map..."</span>)<span class="op">;</span></span>
+<span id="cb9-45"><a href="#cb9-45" aria-hidden="true" tabindex="-1"></a>      ee<span class="op">.</span><span class="fu">Number</span>(<span class="dv">1</span>)<span class="op">.</span><span class="fu">evaluate</span>(<span class="kw">function</span>() {</span>
+<span id="cb9-46"><a href="#cb9-46" aria-hidden="true" tabindex="-1"></a>        <span class="fu">updateRegion</span>()<span class="op">;</span></span>
+<span id="cb9-47"><a href="#cb9-47" aria-hidden="true" tabindex="-1"></a>        <span class="fu">hideLoading</span>()<span class="op">;</span></span>
+<span id="cb9-48"><a href="#cb9-48" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span>
+<span id="cb9-49"><a href="#cb9-49" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb9-50"><a href="#cb9-50" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb9-51"><a href="#cb9-51" aria-hidden="true" tabindex="-1"></a>  <span class="kw">var</span> vineyardsRow <span class="op">=</span> ui<span class="op">.</span><span class="fu">Panel</span>([checkboxVineyards<span class="op">,</span> <span class="fu">createLegendRow</span>(<span class="st">'purple'</span><span class="op">,</span> <span class="st">'Existing Vineyards (2023)'</span>)]<span class="op">,</span></span>
+<span id="cb9-52"><a href="#cb9-52" aria-hidden="true" tabindex="-1"></a>    ui<span class="op">.</span><span class="at">Panel</span><span class="op">.</span><span class="at">Layout</span><span class="op">.</span><span class="fu">flow</span>(<span class="st">'horizontal'</span>))<span class="op">;</span></span>
+<span id="cb9-53"><a href="#cb9-53" aria-hidden="true" tabindex="-1"></a>  legendPanel<span class="op">.</span><span class="fu">add</span>(vineyardsRow)<span class="op">;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/1.2.png" class="img-fluid figure-img" style="width:70.0%"></p>
+<figcaption>Layer Control</figcaption>
+</figure>
+</div>
+</section>
+<section id="single-year-and-multi-year-analysis" class="level4">
+<h4 class="anchored" data-anchor-id="single-year-and-multi-year-analysis">3.3.3 Single-year and Multi-year analysis</h4>
+<p>Allows switching between single-year and multi-year analysis modes, resulting in a visualisation of suitable areas on a map. The multi-year analysis filters out areas on the map that are suitable for all years.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode javascript code-with-copy"><code class="sourceCode javascript"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">var</span> singleYearButton <span class="op">=</span> ui<span class="op">.</span><span class="fu">Button</span>({</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">label</span><span class="op">:</span> <span class="st">'Single Year View'</span><span class="op">,</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">onClick</span><span class="op">:</span> <span class="kw">function</span>() {</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    modeSelect <span class="op">=</span> <span class="st">'Single Year'</span><span class="op">;</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">updateViewMode</span>()<span class="op">;</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="kw">var</span> multiYearButton <span class="op">=</span> ui<span class="op">.</span><span class="fu">Button</span>({</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">label</span><span class="op">:</span> <span class="st">'Multi-Year Analysis'</span><span class="op">,</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">onClick</span><span class="op">:</span> <span class="kw">function</span>() {</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>    modeSelect <span class="op">=</span> <span class="st">'Multi-Year'</span><span class="op">;</span></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">updateViewMode</span>()<span class="op">;</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/1.3.png" class="img-fluid figure-img" style="width:100.0%" alt="Figure 3"></p>
+<figcaption>2015-2023 Muti-year Analysis</figcaption>
+</figure>
+</div>
 </section>
 </section>
-<section id="function-2" class="level3">
-<h3 class="anchored" data-anchor-id="function-2">3.4 Function 2 :</h3>
-<section id="xxxxx-2" class="level4">
-<h4 class="anchored" data-anchor-id="xxxxx-2">3.4.1 xxxxx</h4>
-<p>xxxxx</p>
+<section id="function-2-regional-comparison-analysis" class="level3">
+<h3 class="anchored" data-anchor-id="function-2-regional-comparison-analysis">3.4 Function 2 : Regional Comparison Analysis</h3>
+<section id="custom-drawing-of-arbitrary-areas" class="level4">
+<h4 class="anchored" data-anchor-id="custom-drawing-of-arbitrary-areas">3.4.1 Custom Drawing of Arbitrary Areas</h4>
+<p>Supports users to freely draw any area (e.g.&nbsp;rectangle, polygon) on the map, save and manage multiple custom-drawn areas.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode javascript code-with-copy"><code class="sourceCode javascript"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Configure drawing tools</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">var</span> drawingTools <span class="op">=</span> mapPanel<span class="op">.</span><span class="fu">drawingTools</span>()<span class="op">;</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  drawingTools<span class="op">.</span><span class="fu">setLinked</span>(<span class="kw">false</span>)<span class="op">;</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  drawingTools<span class="op">.</span><span class="fu">setDrawModes</span>([<span class="st">'rectangle'</span><span class="op">,</span> <span class="st">'polygon'</span>])<span class="op">;</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>  drawingTools<span class="op">.</span><span class="fu">setShown</span>(<span class="kw">false</span>)<span class="op">;</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Add button to start drawing</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">var</span> startDrawingButton <span class="op">=</span> ui<span class="op">.</span><span class="fu">Button</span>(<span class="st">'Start Drawing Region'</span><span class="op">,</span> <span class="kw">function</span>() {</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>    drawingTools<span class="op">.</span><span class="fu">layers</span>()<span class="op">.</span><span class="fu">reset</span>()<span class="op">;</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>    drawingTools<span class="op">.</span><span class="fu">setShown</span>(<span class="kw">true</span>)<span class="op">;</span></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>    drawingTools<span class="op">.</span><span class="fu">setDrawModes</span>([<span class="st">'polygon'</span>])<span class="op">;</span></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>    drawingTools<span class="op">.</span><span class="fu">setShape</span>(<span class="st">'polygon'</span>)<span class="op">;</span></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>    drawingTools<span class="op">.</span><span class="fu">draw</span>()<span class="op">;</span></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">showLoading</span>(<span class="st">"Please draw a region on the map"</span>)<span class="op">;</span></span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>    ee<span class="op">.</span><span class="fu">Number</span>(<span class="dv">1</span>)<span class="op">.</span><span class="fu">evaluate</span>(<span class="kw">function</span>() {</span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>      <span class="fu">hideLoading</span>()<span class="op">;</span></span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>  <span class="kw">var</span> saveButton <span class="op">=</span> ui<span class="op">.</span><span class="fu">Button</span>(<span class="st">'Save Region'</span><span class="op">,</span> <span class="kw">function</span>() {</span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>    <span class="kw">var</span> drawn <span class="op">=</span> drawingTools<span class="op">.</span><span class="fu">layers</span>()<span class="op">.</span><span class="fu">get</span>(<span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span>drawn) {</span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a>      <span class="fu">showLoading</span>(<span class="st">"Please draw a region first"</span>)<span class="op">;</span></span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a>      ee<span class="op">.</span><span class="fu">Number</span>(<span class="dv">1</span>)<span class="op">.</span><span class="fu">evaluate</span>(<span class="kw">function</span>() {</span>
+<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a>        <span class="fu">hideLoading</span>()<span class="op">;</span></span>
+<span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span>
+<span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb11-29"><a href="#cb11-29" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb11-30"><a href="#cb11-30" aria-hidden="true" tabindex="-1"></a>    <span class="kw">var</span> geom <span class="op">=</span> drawn<span class="op">.</span><span class="fu">toGeometry</span>()<span class="op">;</span></span>
+<span id="cb11-31"><a href="#cb11-31" aria-hidden="true" tabindex="-1"></a>    <span class="kw">var</span> regionIndex <span class="op">=</span> savedCompareGeometries<span class="op">.</span><span class="at">length</span> <span class="op">+</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb11-32"><a href="#cb11-32" aria-hidden="true" tabindex="-1"></a>    savedCompareGeometries<span class="op">.</span><span class="fu">push</span>(geom)<span class="op">;</span></span>
+<span id="cb11-33"><a href="#cb11-33" aria-hidden="true" tabindex="-1"></a>    mapPanel<span class="op">.</span><span class="fu">addLayer</span>(geom<span class="op">,</span> {<span class="dt">color</span><span class="op">:</span> <span class="st">'blue'</span>}<span class="op">,</span> <span class="st">'Comparison Region '</span> <span class="op">+</span> regionIndex)<span class="op">;</span></span>
+<span id="cb11-34"><a href="#cb11-34" aria-hidden="true" tabindex="-1"></a>    drawingTools<span class="op">.</span><span class="fu">layers</span>()<span class="op">.</span><span class="fu">reset</span>()<span class="op">;</span></span>
+<span id="cb11-35"><a href="#cb11-35" aria-hidden="true" tabindex="-1"></a>    drawingTools<span class="op">.</span><span class="fu">setShown</span>(<span class="kw">false</span>)<span class="op">;</span></span>
+<span id="cb11-36"><a href="#cb11-36" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb11-37"><a href="#cb11-37" aria-hidden="true" tabindex="-1"></a>    <span class="fu">showLoading</span>(<span class="st">"Region saved, please click 'Analyze Selected Region' button to analyze"</span>)<span class="op">;</span></span>
+<span id="cb11-38"><a href="#cb11-38" aria-hidden="true" tabindex="-1"></a>    ee<span class="op">.</span><span class="fu">Number</span>(<span class="dv">1</span>)<span class="op">.</span><span class="fu">evaluate</span>(<span class="kw">function</span>() {</span>
+<span id="cb11-39"><a href="#cb11-39" aria-hidden="true" tabindex="-1"></a>      <span class="fu">hideLoading</span>()<span class="op">;</span></span>
+<span id="cb11-40"><a href="#cb11-40" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb11-41"><a href="#cb11-41" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb11-42"><a href="#cb11-42" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb11-43"><a href="#cb11-43" aria-hidden="true" tabindex="-1"></a>  <span class="kw">var</span> analyzeButton <span class="op">=</span> ui<span class="op">.</span><span class="fu">Button</span>(<span class="st">'Analyze Selected Region'</span><span class="op">,</span> <span class="kw">function</span>() {</span>
+<span id="cb11-44"><a href="#cb11-44" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (savedCompareGeometries<span class="op">.</span><span class="at">length</span> <span class="op">===</span> <span class="dv">0</span>) {</span>
+<span id="cb11-45"><a href="#cb11-45" aria-hidden="true" tabindex="-1"></a>      <span class="fu">showLoading</span>(<span class="st">"Please draw and save a region first"</span>)<span class="op">;</span></span>
+<span id="cb11-46"><a href="#cb11-46" aria-hidden="true" tabindex="-1"></a>      ee<span class="op">.</span><span class="fu">Number</span>(<span class="dv">1</span>)<span class="op">.</span><span class="fu">evaluate</span>(<span class="kw">function</span>() {</span>
+<span id="cb11-47"><a href="#cb11-47" aria-hidden="true" tabindex="-1"></a>        <span class="fu">hideLoading</span>()<span class="op">;</span></span>
+<span id="cb11-48"><a href="#cb11-48" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/2.1.png" class="img-fluid figure-img" style="width:100.0%" alt="Figure 4"></p>
+<figcaption>Drawing Area</figcaption>
+</figure>
+</div>
 </section>
-<section id="xxxxx-3" class="level4">
-<h4 class="anchored" data-anchor-id="xxxxx-3">3.4.2 xxxxx</h4>
-<p>xxxxx</p>
+<section id="trends-in-suitability-and-statistical-analyses" class="level4">
+<h4 class="anchored" data-anchor-id="trends-in-suitability-and-statistical-analyses">3.4.2 Trends in Suitability and Statistical Analyses</h4>
+<p>For each mapped area, a trend map of the area of suitability for each area was generated as well as providing the area of suitable planting and the area of highly suitable areas (&gt;70%) in 2023.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode javascript code-with-copy"><code class="sourceCode javascript"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Get most recently saved region</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">var</span> regionIndex <span class="op">=</span> savedCompareGeometries<span class="op">.</span><span class="at">length</span><span class="op">;</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">var</span> region <span class="op">=</span> savedCompareGeometries[regionIndex <span class="op">-</span> <span class="dv">1</span>]<span class="op">;</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">showLoading</span>(<span class="st">"Analyzing region "</span> <span class="op">+</span> regionIndex <span class="op">+</span> <span class="st">"..."</span>)<span class="op">;</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Analyze suitability change of the region (2020-2023)</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">var</span> years <span class="op">=</span> [<span class="dv">2020</span><span class="op">,</span> <span class="dv">2021</span><span class="op">,</span> <span class="dv">2022</span><span class="op">,</span> <span class="dv">2023</span>]<span class="op">;</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">var</span> yearResults <span class="op">=</span> {}<span class="op">;</span></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">var</span> totalYears <span class="op">=</span> years<span class="op">.</span><span class="at">length</span><span class="op">;</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">var</span> processedYears <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Analyze basic suitability for each year</span></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>    years<span class="op">.</span><span class="fu">forEach</span>(<span class="kw">function</span>(year) {</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Use simple filtering conditions to calculate suitability area</span></span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>      <span class="kw">var</span> suitableMask <span class="op">=</span> <span class="fu">computeBasicSuitability</span>(region<span class="op">,</span> <span class="bu">String</span>(year))<span class="op">;</span></span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Calculate suitable area size</span></span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>      suitableMask<span class="op">.</span><span class="fu">multiply</span>(ee<span class="op">.</span><span class="at">Image</span><span class="op">.</span><span class="fu">pixelArea</span>())<span class="op">.</span><span class="fu">reduceRegion</span>({</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>        <span class="dt">reducer</span><span class="op">:</span> ee<span class="op">.</span><span class="at">Reducer</span><span class="op">.</span><span class="fu">sum</span>()<span class="op">,</span></span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>        <span class="dt">geometry</span><span class="op">:</span> region<span class="op">,</span></span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>        <span class="dt">scale</span><span class="op">:</span> <span class="dv">250</span><span class="op">,</span></span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>        <span class="dt">maxPixels</span><span class="op">:</span> <span class="fl">1e10</span></span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>      })<span class="op">.</span><span class="fu">evaluate</span>(<span class="kw">function</span>(result) {</span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>        <span class="kw">var</span> area <span class="op">=</span> result <span class="op">?</span> result<span class="op">.</span><span class="at">mask</span> <span class="op">/</span> <span class="fl">1e6</span> <span class="op">:</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>        yearResults[year] <span class="op">=</span> {</span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>          <span class="dt">suitable_area</span><span class="op">:</span> area</span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>        }<span class="op">;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/2.2.png" class="img-fluid figure-img" style="width:100.0%" alt="Figure 5"></p>
+<figcaption>Trend and Statistical Analyses</figcaption>
+</figure>
+</div>
+</section>
+<section id="support-for-comparative-analyses-in-two-regions" class="level4">
+<h4 class="anchored" data-anchor-id="support-for-comparative-analyses-in-two-regions">3.4.3 Support for Comparative Analyses in Two Regions</h4>
+<p>Supports detailed comparisons between two areas, outputs area comparison tables and text summaries (who is more suitable, who has more highly suitable area, etc.).</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode javascript code-with-copy"><code class="sourceCode javascript"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a> <span class="co">// Get results of the last two regions</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>      <span class="kw">var</span> region1Results <span class="op">=</span> areaResults[<span class="st">'region'</span> <span class="op">+</span> (savedCompareGeometries<span class="op">.</span><span class="at">length</span> <span class="op">-</span> <span class="dv">1</span>)]<span class="op">;</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>      <span class="kw">var</span> region2Results <span class="op">=</span> areaResults[<span class="st">'region'</span> <span class="op">+</span> savedCompareGeometries<span class="op">.</span><span class="at">length</span>]<span class="op">;</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="op">!</span>region1Results <span class="op">||</span> <span class="op">!</span>region2Results) {</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>        <span class="fu">hideLoading</span>()<span class="op">;</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>        <span class="fu">showLoading</span>(<span class="st">"Unable to retrieve region data, please re-analyze"</span>)<span class="op">;</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>        ee<span class="op">.</span><span class="fu">Number</span>(<span class="dv">1</span>)<span class="op">.</span><span class="fu">evaluate</span>(<span class="kw">function</span>() {</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>          <span class="fu">hideLoading</span>()<span class="op">;</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>        })<span class="op">;</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Create comparison panel</span></span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>      <span class="kw">var</span> comparisonPanel <span class="op">=</span> ui<span class="op">.</span><span class="fu">Panel</span>({</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>        <span class="dt">layout</span><span class="op">:</span> ui<span class="op">.</span><span class="at">Panel</span><span class="op">.</span><span class="at">Layout</span><span class="op">.</span><span class="fu">flow</span>(<span class="st">'vertical'</span>)<span class="op">,</span></span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>        <span class="dt">style</span><span class="op">:</span> {<span class="dt">width</span><span class="op">:</span> <span class="st">'100%'</span><span class="op">,</span> <span class="dt">padding</span><span class="op">:</span> <span class="st">'8px'</span><span class="op">,</span> <span class="dt">border</span><span class="op">:</span> <span class="st">'1px solid #ddd'</span>}</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a>      comparisonPanel<span class="op">.</span><span class="fu">add</span>(ui<span class="op">.</span><span class="fu">Label</span>(<span class="st">'Region Comparison (2023)'</span><span class="op">,</span> {</span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a>        <span class="dt">fontWeight</span><span class="op">:</span> <span class="st">'bold'</span><span class="op">,</span></span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a>        <span class="dt">textAlign</span><span class="op">:</span> <span class="st">'center'</span><span class="op">,</span></span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a>        <span class="dt">margin</span><span class="op">:</span> <span class="st">'0 0 8px 0'</span></span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a>      }))<span class="op">;</span></span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Create comparison table</span></span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a>      <span class="kw">var</span> table <span class="op">=</span> ui<span class="op">.</span><span class="fu">Panel</span>({</span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a>        <span class="dt">layout</span><span class="op">:</span> ui<span class="op">.</span><span class="at">Panel</span><span class="op">.</span><span class="at">Layout</span><span class="op">.</span><span class="fu">flow</span>(<span class="st">'vertical'</span>)<span class="op">,</span></span>
+<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a>        <span class="dt">style</span><span class="op">:</span> {<span class="dt">width</span><span class="op">:</span> <span class="st">'100%'</span>}</span>
+<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb14"><pre class="sourceCode javascript code-with-copy"><code class="sourceCode javascript"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Add conclusion panel</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>      <span class="kw">var</span> conclusionPanel <span class="op">=</span> ui<span class="op">.</span><span class="fu">Panel</span>({</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>        <span class="dt">layout</span><span class="op">:</span> ui<span class="op">.</span><span class="at">Panel</span><span class="op">.</span><span class="at">Layout</span><span class="op">.</span><span class="fu">flow</span>(<span class="st">'vertical'</span>)<span class="op">,</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>        <span class="dt">style</span><span class="op">:</span> {<span class="dt">width</span><span class="op">:</span> <span class="st">'100%'</span><span class="op">,</span> <span class="dt">margin</span><span class="op">:</span> <span class="st">'8px 0 0 0'</span><span class="op">,</span> <span class="dt">padding</span><span class="op">:</span> <span class="st">'8px'</span><span class="op">,</span> <span class="dt">backgroundColor</span><span class="op">:</span> <span class="st">'#f9f9f9'</span>}</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>      <span class="kw">var</span> conclusion <span class="op">=</span> <span class="st">''</span><span class="op">;</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (region1Results[<span class="dv">2023</span>]<span class="op">.</span><span class="at">suitable_area</span> <span class="op">&gt;</span> region2Results[<span class="dv">2023</span>]<span class="op">.</span><span class="at">suitable_area</span>) {</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>        conclusion <span class="op">=</span> <span class="st">'Region '</span> <span class="op">+</span> (savedCompareGeometries<span class="op">.</span><span class="at">length</span> <span class="op">-</span> <span class="dv">1</span>) <span class="op">+</span> <span class="st">' has a larger suitable planting area.</span><span class="sc">\n</span><span class="st">'</span><span class="op">;</span></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>      } <span class="cf">else</span> {</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>        conclusion <span class="op">=</span> <span class="st">'Region '</span> <span class="op">+</span> savedCompareGeometries<span class="op">.</span><span class="at">length</span> <span class="op">+</span> <span class="st">' has a larger suitable planting area.</span><span class="sc">\n</span><span class="st">'</span><span class="op">;</span></span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>      <span class="kw">var</span> highSuitConclusion <span class="op">=</span> <span class="st">''</span><span class="op">;</span></span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (region1Results[<span class="dv">2023</span>]<span class="op">.</span><span class="at">high_suitable_area</span> <span class="op">&gt;</span> region2Results[<span class="dv">2023</span>]<span class="op">.</span><span class="at">high_suitable_area</span>) {</span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>        highSuitConclusion <span class="op">=</span> <span class="st">'Region '</span> <span class="op">+</span> (savedCompareGeometries<span class="op">.</span><span class="at">length</span> <span class="op">-</span> <span class="dv">1</span>) <span class="op">+</span> <span class="st">' has a larger high suitability area,'</span><span class="op">;</span></span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>        highSuitConclusion <span class="op">+=</span> <span class="st">' '</span> <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(highSuitableDiff)<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">2</span>) <span class="op">+</span> <span class="st">'km² more than region '</span> <span class="op">+</span> savedCompareGeometries<span class="op">.</span><span class="at">length</span><span class="op">;</span></span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a>      } <span class="cf">else</span> {</span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>        highSuitConclusion <span class="op">=</span> <span class="st">'Region '</span> <span class="op">+</span> savedCompareGeometries<span class="op">.</span><span class="at">length</span> <span class="op">+</span> <span class="st">' has a larger high suitability area,'</span><span class="op">;</span></span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a>        highSuitConclusion <span class="op">+=</span> <span class="st">' '</span> <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(highSuitableDiff)<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">2</span>) <span class="op">+</span> <span class="st">'km² more than region '</span> <span class="op">+</span> (savedCompareGeometries<span class="op">.</span><span class="at">length</span> <span class="op">-</span> <span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a>      conclusionPanel<span class="op">.</span><span class="fu">add</span>(ui<span class="op">.</span><span class="fu">Label</span>(<span class="st">'Conclusion:'</span><span class="op">,</span> {<span class="dt">fontWeight</span><span class="op">:</span> <span class="st">'bold'</span>}))<span class="op">;</span></span>
+<span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a>      conclusionPanel<span class="op">.</span><span class="fu">add</span>(ui<span class="op">.</span><span class="fu">Label</span>(conclusion))<span class="op">;</span></span>
+<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a>      conclusionPanel<span class="op">.</span><span class="fu">add</span>(ui<span class="op">.</span><span class="fu">Label</span>(highSuitConclusion<span class="op">,</span> {<span class="dt">color</span><span class="op">:</span> <span class="st">'#D81B60'</span><span class="op">,</span> <span class="dt">fontWeight</span><span class="op">:</span> <span class="st">'bold'</span>}))<span class="op">;</span></span>
+<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb14-27"><a href="#cb14-27" aria-hidden="true" tabindex="-1"></a>      comparisonPanel<span class="op">.</span><span class="fu">add</span>(conclusionPanel)<span class="op">;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/2.3.png" class="img-fluid figure-img"></p>
+<figcaption>Select Two Areas</figcaption>
+</figure>
+</div>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/2.32.png" class="img-fluid figure-img"></p>
+<figcaption>Comparison</figcaption>
+</figure>
+</div>
 </section>
 </section>
 </section>
